@@ -1,0 +1,47 @@
+{
+  "users": [
+    {
+      "id": "6fb6b0802e67",
+      "email": "admin.admin@univ.edu",
+      "name": "admin",
+      "password": "cbd03f7f8f642b73:0966e7862c066e90c28d9ab486cf6c07e6a7b0fb6c5bc20392fd3a87b343ddaf",
+      "phone": "",
+      "car": {
+        "model": "mazda",
+        "plate": "123"
+      },
+      "photo": null
+    },
+    {
+      "id": "8e4244d351e9",
+      "email": "chifa@university.com",
+      "name": "chifa",
+      "password": "cff04d751c5315bc:a427fbc457c1931dd5eaf800aafee5bb9bb4d925be812b786f9236a727262d99",
+      "phone": "",
+      "car": {
+        "model": "",
+        "plate": ""
+      },
+      "photo": null
+    }
+  ],
+  "rides": [
+    {
+      "id": "24cb88fe5077",
+      "driverId": "6fb6b0802e67",
+      "from": "rdaes",
+      "to": "cun",
+      "date": "2026-10-20",
+      "time": "12:51",
+      "seats": 3,
+      "seatsLeft": 3,
+      "price": 10,
+      "status": "open"
+    }
+  ],
+  "bookings": [],
+  "tokens": {
+    "7b0aeccd9d602c84582bcb2c71f450667ccd964c254153be": "6fb6b0802e67",
+    "bf03f91a45d057157c6bddebcc7ff8ba622dd0cc1897d112": "8e4244d351e9"
+  }
+}
