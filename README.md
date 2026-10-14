@@ -16,6 +16,7 @@ Campus Carpool is a Flutter app that helps university communities share rides. F
 - **Stay in control** — cancel your own trip or booking, with seat counts and related booking statuses updated by the API.
 - **Set up your profile** — add contact details, vehicle information, and a profile photo.
 - **Pick up where you left off** — the Flutter app stores the login token locally and restores the session on launch.
+- **Get instant in-app help** — open the Campus Guide from any signed-in tab for quick answers and one-tap shortcuts to the relevant section.
 
 ## 🧱 Architecture
 
@@ -43,6 +44,8 @@ The client is a Material 3 Flutter app. `main.dart` initializes the API/session 
 | `screens/profile_screen.dart` | Edit personal/vehicle details and profile photo |
 
 `api.dart` centralizes HTTP requests, API errors, authentication state, and persisted login tokens. `widgets.dart` contains shared ride/status UI and small presentation helpers.
+
+The Campus Guide is an offline, built-in assistant in `screens/help_chat_screen.dart`. It matches common questions to app-specific instructions and can take users directly to the related tab. It needs no API key, sends no chat messages to the backend, and works without an internet connection.
 
 ### API and data
 
@@ -134,6 +137,7 @@ campus_carpool/
 │   ├── api.dart
 │   ├── widgets.dart
 │   └── screens/
+│       └── help_chat_screen.dart
 ├── backend/
 │   ├── server.js
 │   ├── package.json
