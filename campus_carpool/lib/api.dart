@@ -11,9 +11,16 @@ class ApiException implements Exception {
 class Api {
   // Émulateur Android -> 10.0.2.2 ; sinon localhost.
   // Téléphone réel : remplacez par l'IP de votre PC, ex: 'http://192.168.1.20:3000'
-  static String base = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-      ? 'http://10.0.2.2:3000'
-      : 'http://localhost:3000';
+  // static String base = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+  //     ? 'http://10.0.2.2:3000'
+  //     : 'http://localhost:3000';
+  //static String base = 'http://192.168.1.126:3000';
+  static String base = 'http://localhost:3000'; //added by eya so i can run the app on my phone
+  static Future<void> devLogin() async {
+  token = 'dev';
+  user = {'id': 'dev', 'email': 'dev@univ.fr', 'name': 'Dev', 'phone': '', 'car': {'model': '', 'plate': ''}, 'photo': null};
+  loggedIn.value = true;
+}
 
   static String? token;
   static Map<String, dynamic>? user;
