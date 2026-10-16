@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api.dart';
 import '../l10n.dart';
+import 'package:flutter/foundation.dart';
 
 // ===================== DEV SWITCHES =====================
 /// false = no client-side checks (to test the UI freely)
@@ -148,8 +149,14 @@ class _AuthScreenState extends State<AuthScreen> {
       // message coming from the server (wrong password, email already used...)
       bad.addAll(e.message.toLowerCase().contains('mot de passe') ? {'pwd', 'email'} : {'email'});
       _showError(l10n.trServer(e.message));
-    } catch (_) {
-      _showError(l10n.tr('err_server'));
+    // } catch (_) {
+    //   _showError(l10n.tr('err_server'));
+    // } commented ech
+    }catch (e) {
+      debugPrint('AUTH ERROR: $e');
+      _showError(kDebugMode
+          ? '${l10n.tr('err_server')}\n${Api.base}\n$e'
+          : l10n.tr('err_server'));
     }
     if (mounted) setState(() => busy = false);
   }
