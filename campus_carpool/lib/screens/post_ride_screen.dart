@@ -73,7 +73,7 @@ class _PostRideScreenState extends State<PostRideScreen> {
       Row(children: [
         Expanded(child: TextField(controller: seats, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Places', prefixIcon: Icon(Icons.event_seat), border: OutlineInputBorder()))),
         const SizedBox(width: 12),
-        Expanded(child: TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Prix (€)', prefixIcon: Icon(Icons.euro), border: OutlineInputBorder()))),
+        Expanded(child: TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Prix (dt)', prefixIcon: Icon(Icons.euro), border: OutlineInputBorder()))),
       ]),
       const SizedBox(height: 20),
       FilledButton(onPressed: busy ? null : submit, child: const Text('Publier')),

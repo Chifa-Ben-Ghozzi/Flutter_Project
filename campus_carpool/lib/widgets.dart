@@ -50,7 +50,7 @@ class RideInfo extends StatelessWidget {
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
       const SizedBox(height: 4),
       Text('📅 ${ride['date']}  🕒 ${ride['time']}'),
-      Text('💶 ${ride['price']} €   💺 ${ride['seatsLeft']}/${ride['seats']} places'),
+      Text('💶 ${ride['price']} dt   💺 ${ride['seatsLeft']}/${ride['seats']} places'),
       Text('👤 ${d['name'] ?? ''}${(d['phone'] ?? '').toString().isNotEmpty ? ' · ${d['phone']}' : ''}'),
       if ((car['model'] ?? '').toString().isNotEmpty) Text('🚗 ${car['model']} ${car['plate'] ?? ''}'),
     ]);

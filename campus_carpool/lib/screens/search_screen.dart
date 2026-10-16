@@ -67,7 +67,7 @@ class _SearchScreenState extends State<SearchScreen> {
             )),
             if (date != null) IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => date = null)),
             const SizedBox(width: 8),
-            Expanded(child: TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix max €', border: OutlineInputBorder(), isDense: true))),
+            Expanded(child: TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix max dt', border: OutlineInputBorder(), isDense: true))),
             const SizedBox(width: 8),
             Expanded(child: TextField(controller: seats, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Places min', border: OutlineInputBorder(), isDense: true))),
           ]),
