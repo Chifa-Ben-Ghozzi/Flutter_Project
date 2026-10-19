@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../l10n.dart';
 
 class _ChatMessage {
   const _ChatMessage({
@@ -22,21 +24,13 @@ class HelpChatScreen extends StatefulWidget {
 }
 
 class _HelpChatScreenState extends State<HelpChatScreen> {
-  static const _suggestions = [
-    'How do I find a ride?',
-    'How do bookings work?',
-    'How do I offer a ride?',
-    'How do I edit my profile?',
-  ];
+  static const _suggestions = ['chat_s_find', 'chat_s_bookings', 'chat_s_offer', 'chat_s_profile'];
 
   final _input = TextEditingController();
   final _scrollController = ScrollController();
-  final _messages = <_ChatMessage>[
-    const _ChatMessage(
-      text:
-          "Hi! I'm your Campus Carpool guide. Ask me anything about finding a ride, booking a seat, or sharing your own trip.",
-      isUser: false,
-    ),
+  late final _messages = <_ChatMessage>[
+    // Créé au premier build : on lit la langue via L10nScope (autorisé pendant un build)
+    _ChatMessage(text: context.tr('chat_welcome'), isUser: false),
   ];
 
   @override
@@ -75,22 +69,23 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
   }
 
   String _answer(String question) {
+    final tr = context.read<L10n>().tr;
     final text = question.toLowerCase();
 
-    if (_hasAny(text, ['cancel', 'delete', 'annul'])) {
-      return 'Passengers can cancel a pending or accepted booking from “Réservations” → “À venir”. Drivers can cancel an upcoming ride from “Mes trajets”; its pending and accepted bookings are cancelled too.';
+    if (_hasAny(text, ['cancel', 'delete', 'annul', 'supprim'])) {
+      return tr('chat_a_cancel');
     }
-    if (_hasAny(text, ['no rides', 'nothing', 'empty', 'no results', 'not found', 'aucun'])) {
-      return 'Try broadening your search: remove a filter, choose another date, increase the maximum price, or lower the minimum seats. Search results show open future rides from other drivers only.';
+    if (_hasAny(text, ['no rides', 'nothing', 'empty', 'no results', 'not found', 'aucun', 'rien', 'vide'])) {
+      return tr('chat_a_empty');
     }
-    if (_hasAny(text, ['offer', 'post', 'publish', 'create a ride', 'driver', 'publier'])) {
-      return 'Tap “Publier” and enter your departure, destination, date, time, available seats, and price in dt. Submit to publish the ride. You can find it later under “Mes trajets”, where you can respond to passenger requests or cancel the trip.';
+    if (_hasAny(text, ['offer', 'post', 'publish', 'create a ride', 'driver', 'publier', 'proposer', 'conducteur'])) {
+      return tr('chat_a_offer');
     }
-    if (_hasAny(text, ['accept', 'decline', 'approve', 'passenger', 'request status'])) {
-      return 'Open “Mes trajets” and find the ride. Pending passenger requests appear on its card: tap the green check to accept or the red cross to decline. Accepting a request uses one available seat.';
+    if (_hasAny(text, ['accept', 'decline', 'approve', 'passenger', 'request status', 'accepter', 'refuser', 'passager'])) {
+      return tr('chat_a_accept');
     }
-    if (_hasAny(text, ['book', 'booking', 'reserve', 'reservation', 'request', 'seat', 'place'])) {
-      return 'When you request a seat, the booking starts as “En attente”. The driver can accept or decline it. Once accepted, your booking appears under “Réservations” → “À venir”. You can cancel a pending or accepted booking there; cancelling an accepted one returns the seat to the ride.';
+    if (_hasAny(text, ['book', 'booking', 'reserve', 'reservation', 'request', 'seat', 'place', 'réserv', 'demande'])) {
+      return tr('chat_a_booking');
     }
     if (_hasAny(text, [
       'login',
@@ -101,9 +96,11 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
       'email',
       'password',
       'inscri',
-      'connect'
+      'connect',
+      'compte',
+      'mot de passe'
     ])) {
-      return 'To get started, create an account with your name, university email, and a password of at least 6 characters. University-style domains such as .edu, .ac.*, or domains containing “univ” are accepted. Returning? Choose “Se connecter” on the welcome screen.';
+      return tr('chat_a_account');
     }
     if (_hasAny(text, [
       'profile',
@@ -115,9 +112,12 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
       'picture',
       'log out',
       'logout',
-      'sign out'
+      'sign out',
+      'voiture',
+      'téléphone',
+      'déconnex'
     ])) {
-      return 'Tap “Profil” to update your name, phone number, car details, or profile photo. Tap “Enregistrer” to save your changes. Your university email is shown on this screen.';
+      return tr('chat_a_profile');
     }
     if (_hasAny(text, [
       'find',
@@ -127,15 +127,17 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
       'filter',
       'ride',
       'trajet',
-      'chercher'
+      'chercher',
+      'trouver',
+      'recherche'
     ])) {
-      return 'Tap “Chercher” in the bottom navigation. You can filter open rides by destination, date, maximum price, and minimum available seats. Tap “Rechercher” to apply your filters, then choose “Demander une place” on a ride you like.';
+      return tr('chat_a_search');
     }
-    if (_hasAny(text, ['hello', 'hi', 'hey', 'help', 'what can you do'])) {
-      return 'I can guide you through accounts, finding rides, publishing a trip, booking seats, handling requests, cancellations, and your profile. Pick one of the suggestions or ask me a question!';
+    if (_hasAny(text, ['hello', 'hi', 'hey', 'help', 'what can you do', 'bonjour', 'salut', 'aide'])) {
+      return tr('chat_a_hello');
     }
 
-    return 'I can help with signing in, searching for rides, publishing a trip, bookings, cancellations, and your profile. Try asking “How do I find a ride?” or choose a suggestion below.';
+    return tr('chat_a_default');
   }
 
   bool _hasAny(String text, List<String> terms) =>
@@ -146,13 +148,13 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
     if (_hasAny(text, ['cancel', 'delete', 'annul'])) {
       return _hasAny(text, ['booking', 'reservation', 'seat', 'place']) ? 3 : 2;
     }
-    if (_hasAny(text, ['offer', 'post', 'publish', 'create a ride', 'publier'])) {
+    if (_hasAny(text, ['offer', 'post', 'publish', 'create a ride', 'publier', 'proposer'])) {
       return 1;
     }
-    if (_hasAny(text, ['accept', 'decline', 'approve', 'passenger'])) {
+    if (_hasAny(text, ['accept', 'decline', 'approve', 'passenger', 'refuser', 'passager'])) {
       return 2;
     }
-    if (_hasAny(text, ['book', 'booking', 'reserve', 'reservation', 'seat', 'place'])) {
+    if (_hasAny(text, ['book', 'booking', 'reserve', 'reservation', 'seat', 'place', 'réserv'])) {
       return 3;
     }
     if (_hasAny(text, [
@@ -169,7 +171,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
     ])) {
       return 4;
     }
-    if (_hasAny(text, ['find', 'search', 'destination', 'filter', 'ride', 'trajet', 'chercher'])) {
+    if (_hasAny(text, ['find', 'search', 'destination', 'filter', 'ride', 'trajet', 'chercher', 'trouver'])) {
       return 0;
     }
     return null;
@@ -227,28 +229,28 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
             child: const Icon(Icons.auto_awesome, color: Colors.white),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Campus guide',
-                  style: TextStyle(
+                  context.tr('chat_title'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'Offline guide · answers stay on your device',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  context.tr('chat_subtitle'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Close help',
+            tooltip: context.tr('close'),
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close, color: Colors.white),
           ),
@@ -265,7 +267,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'QUICK QUESTIONS',
+            context.tr('chat_quick'),
             style: TextStyle(
               color: colors.onSurfaceVariant,
               fontSize: 11,
@@ -279,9 +281,9 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
             runSpacing: 8,
             children: _suggestions
                 .map(
-                  (question) => ActionChip(
-                    label: Text(question),
-                    onPressed: () => _send(question),
+                  (key) => ActionChip(
+                    label: Text(context.tr(key)),
+                    onPressed: () => _send(context.tr(key)),
                     side: BorderSide(color: colors.outline.withAlpha(75)),
                     backgroundColor: colors.primary.withAlpha(18),
                     labelStyle: TextStyle(
@@ -343,7 +345,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
                     TextButton.icon(
                       onPressed: () => widget.onNavigate(message.destination!),
                       icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: const Text('Open this section'),
+                      label: Text(context.tr('chat_open_section')),
                       style: TextButton.styleFrom(
                         foregroundColor: colors.primary,
                         padding: EdgeInsets.zero,
@@ -380,7 +382,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
                 textCapitalization: TextCapitalization.sentences,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
-                  hintText: 'Ask me anything...',
+                  hintText: context.tr('chat_hint'),
                   filled: true,
                   fillColor: colors.primary.withAlpha(18),
                   contentPadding: const EdgeInsets.symmetric(
@@ -396,7 +398,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              tooltip: 'Send message',
+              tooltip: context.tr('send'),
               onPressed: _send,
               icon: const Icon(Icons.arrow_upward_rounded),
             ),

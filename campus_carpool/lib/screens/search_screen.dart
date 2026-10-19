@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../l10n.dart';
+import '../models.dart';
 import '../widgets.dart';
+import 'ride_details_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -13,13 +16,21 @@ class _SearchScreenState extends State<SearchScreen> {
   final price = TextEditingController();
   final seats = TextEditingController();
   DateTime? date;
-  List rides = [];
+  List<Ride> rides = [];
   bool loading = true;
 
   @override
   void initState() {
     super.initState();
     load();
+  }
+
+  @override
+  void dispose() {
+    dest.dispose();
+    price.dispose();
+    seats.dispose();
+    super.dispose();
   }
 
   Future<void> load() async {
@@ -44,9 +55,10 @@ class _SearchScreenState extends State<SearchScreen> {
     if (d != null) setState(() => date = d);
   }
 
-  Future<void> book(Map r) async {
-    if (await guard(context, () => Api.book(r['id']))) {
-      if (mounted) toast(context, 'Demande envoyée au conducteur');
+  Future<void> book(Ride r) async {
+    final msg = context.tr('toast_request_sent');
+    if (await guard(context, () => Api.book(r.id))) {
+      if (mounted) toast(context, msg);
       load();
     }
   }
@@ -57,56 +69,91 @@ class _SearchScreenState extends State<SearchScreen> {
       Padding(
         padding: const EdgeInsets.all(12),
         child: Column(children: [
-          TextField(controller: dest, decoration: const InputDecoration(labelText: 'Destination', prefixIcon: Icon(Icons.place), border: OutlineInputBorder(), isDense: true)),
+          TextField(
+            controller: dest,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => load(),
+            decoration: InputDecoration(
+              labelText: context.tr('destination'),
+              prefixIcon: const Icon(Icons.place),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
           const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: OutlinedButton.icon(
-              onPressed: pickDate,
-              icon: const Icon(Icons.calendar_today, size: 16),
-              label: Text(date == null ? 'Date' : fmtDate(date!)),
-            )),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: pickDate,
+                icon: const Icon(Icons.calendar_today, size: 16),
+                label: Text(date == null ? context.tr('date') : fmtDate(date!)),
+              ),
+            ),
             if (date != null) IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => date = null)),
             const SizedBox(width: 8),
-            Expanded(child: TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Prix max dt', border: OutlineInputBorder(), isDense: true))),
+            Expanded(
+              child: TextField(
+                controller: price,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: context.tr('max_price'), border: const OutlineInputBorder(), isDense: true),
+              ),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: TextField(controller: seats, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Places min', border: OutlineInputBorder(), isDense: true))),
+            Expanded(
+              child: TextField(
+                controller: seats,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: context.tr('min_seats'), border: const OutlineInputBorder(), isDense: true),
+              ),
+            ),
           ]),
           const SizedBox(height: 8),
-          SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: load, icon: const Icon(Icons.search), label: const Text('Rechercher'))),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(onPressed: load, icon: const Icon(Icons.search), label: Text(context.tr('search_btn'))),
+          ),
         ]),
       ),
       Expanded(
-        child: loading
-            ? const Center(child: CircularProgressIndicator())
-            : rides.isEmpty
-                ? const Center(child: Text('Aucun trajet trouvé'))
-                : RefreshIndicator(
-                    onRefresh: load,
-                    child: ListView.builder(
-                      itemCount: rides.length,
-                      itemBuilder: (_, i) {
-                        final r = rides[i];
-                        final mine = r['myBooking'];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              RideInfo(r),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: mine != null
-                                    ? statusChip(mine)
-                                    : FilledButton(onPressed: () => book(r), child: const Text('Demander une place')),
-                              ),
-                            ]),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: loading
+              ? const SkeletonList()
+              : RefreshIndicator(
+                  onRefresh: load,
+                  child: rides.isEmpty
+                      ? EmptyState(Icons.search_off, context.tr('no_rides_found'))
+                      : ListView.builder(
+                          itemCount: rides.length,
+                          itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(rides[i])),
+                        ),
+                ),
+        ),
       ),
     ]);
   }
+
+  Widget card(Ride r) => Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () async {
+            if (await openRide(context, r.id)) load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              RideInfo(r),
+              const SizedBox(height: 8),
+              Row(children: [
+                Text(context.tr('see_details'), style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                const Spacer(),
+                r.myBookingStatus != null
+                    ? statusChip(context, r.myBookingStatus!)
+                    : FilledButton(onPressed: () => book(r), child: Text(context.tr('request_seat'))),
+              ]),
+            ]),
+          ),
+        ),
+      );
 }

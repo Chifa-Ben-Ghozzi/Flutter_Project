@@ -1,18 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../api.dart';
 import '../l10n.dart';
-import 'package:flutter/foundation.dart';
-
-// ===================== DEV SWITCHES =====================
-/// false = no client-side checks (to test the UI freely)
-/// true  = checks are active (empty fields, bad email, short password...)
-const bool kValidate = true;
-
-/// true  = skip the server completely and fake a login (needs Api.devLogin)
-/// false = real calls to the backend
-const bool kBypassBackend = false;
-// ========================================================
+import '../providers/auth_provider.dart';
 
 const _indigo = Color(0xFF3F51B5);
 const _deep = Color(0xFF1A237E);
@@ -132,31 +124,25 @@ class _AuthScreenState extends State<AuthScreen> {
   // ---------- Submit ----------
   Future<void> submit() async {
     FocusScope.of(context).unfocus();
-    final l10n = L10nScope.read(context); // read before the awaits
-    if (kValidate && !_validate()) return;
+    final l10n = context.read<L10n>(); // read before the awaits
+    final auth = context.read<AuthProvider>();
+    if (!_validate()) return;
 
     setState(() => busy = true);
     try {
-      if (kBypassBackend) {
-        await Future.delayed(const Duration(milliseconds: 800));
-        await Api.devLogin();
-      } else if (register) {
-        await Api.register(email.text.trim(), pwd.text, name.text.trim());
+      if (register) {
+        await auth.register(email.text.trim(), pwd.text, name.text.trim());
       } else {
-        await Api.login(email.text.trim(), pwd.text);
+        await auth.login(email.text.trim(), pwd.text);
       }
     } on ApiException catch (e) {
       // message coming from the server (wrong password, email already used...)
       bad.addAll(e.message.toLowerCase().contains('mot de passe') ? {'pwd', 'email'} : {'email'});
       _showError(l10n.trServer(e.message));
-    // } catch (_) {
-    //   _showError(l10n.tr('err_server'));
-    // } commented ech
-    }catch (e) {
+    } catch (e) {
       debugPrint('AUTH ERROR: $e');
-      _showError(kDebugMode
-          ? '${l10n.tr('err_server')}\n${Api.base}\n$e'
-          : l10n.tr('err_server'));
+      // En mode debug, on affiche aussi l'adresse du serveur pour aider au diagnostic
+      _showError(kDebugMode ? '${l10n.tr('err_server')}\n${Api.base}' : l10n.tr('err_server'));
     }
     if (mounted) setState(() => busy = false);
   }
@@ -167,7 +153,10 @@ class _AuthScreenState extends State<AuthScreen> {
     final eyesClosed = ((pwdFocus.hasFocus || confirmFocus.hasFocus) && !showPwd) || blink;
     final look = emailFocus.hasFocus ? ((email.text.length / 22).clamp(0.0, 1.0) * 2 - 1) * 0.8 : 0.0;
 
-    return Scaffold(
+    // Écran dessiné à la main sur fond indigo : il reste en thème clair même en mode sombre
+    return Theme(
+      data: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: _indigo), useMaterial3: true),
+      child: Scaffold(
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
@@ -218,6 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
           _banner(),
         ],
       ),
+    ),
     );
   }
 
@@ -246,7 +236,7 @@ class _AuthScreenState extends State<AuthScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 30, offset: const Offset(0, 12)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 30, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(children: [
@@ -498,7 +488,7 @@ class _CarPainter extends CustomPainter {
     // ground shadow
     canvas.drawOval(
       Rect.fromCenter(center: Offset(w / 2, h * 0.975), width: w * 0.85, height: h * 0.08),
-      Paint()..color = Colors.black.withOpacity(0.22),
+      Paint()..color = Colors.black.withValues(alpha: 0.22),
     );
 
     // wheels (behind the body)
@@ -578,7 +568,7 @@ class _CarPainter extends CustomPainter {
           ..moveTo(e.dx - eyeR * 0.9, y.clamp(e.dy - eyeR, e.dy + eyeR * 0.1))
           ..quadraticBezierTo(e.dx, y + eyeR * 0.5 * closed, e.dx + eyeR * 0.9,
               y.clamp(e.dy - eyeR, e.dy + eyeR * 0.1));
-        canvas.drawPath(path, stroke..color = Colors.white.withOpacity(closed.clamp(0.0, 1.0)));
+        canvas.drawPath(path, stroke..color = Colors.white.withValues(alpha: closed.clamp(0.0, 1.0)));
       }
     }
 
@@ -592,7 +582,7 @@ class _CarPainter extends CustomPainter {
           p,
           h * 0.11,
           Paint()
-            ..color = const Color(0xFFFFE082).withOpacity(0.55 * awake)
+            ..color = const Color(0xFFFFE082).withValues(alpha: 0.55 * awake)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
         );
       }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../api.dart';
+import '../l10n.dart';
+import '../models.dart';
 import '../widgets.dart';
+import 'ride_details_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -9,7 +12,7 @@ class MyBookingsScreen extends StatefulWidget {
 }
 
 class _MyBookingsScreenState extends State<MyBookingsScreen> {
-  List bookings = [];
+  List<Booking> bookings = [];
   bool loading = true;
 
   @override
@@ -23,46 +26,73 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     if (mounted) setState(() => loading = false);
   }
 
-  bool isUpcoming(Map b) => ['pending', 'accepted'].contains(b['status']) && !isPast(b['ride']);
-
-  Widget card(Map b) => Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  Widget card(Booking b) {
+    final ride = b.ride!;
+    final primary = Theme.of(context).colorScheme.primary;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          if (await openRide(context, ride.id)) load();
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Expanded(child: RideInfo(b['ride'])), statusChip(b['status'])]),
-            if (isUpcoming(b))
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: RideInfo(ride)),
+              statusChip(context, b.status),
+            ]),
+            if (b.status == 'accepted' && ride.isPast && !ride.isCancelled)
+              Text('⭐ ${context.tr('tap_to_rate_driver')}', style: TextStyle(color: primary))
+            else if (b.status == 'accepted')
+              Text('📞 ${context.tr('tap_to_call_driver')}', style: TextStyle(color: primary)),
+            if (b.isUpcoming)
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: TextButton.icon(
                   onPressed: () async {
-                    if (await guard(context, () => Api.cancelBooking(b['id']))) load();
+                    if (await guard(context, () => Api.cancelBooking(b.id))) load();
                   },
                   icon: const Icon(Icons.close, color: Colors.red),
-                  label: const Text('Annuler', style: TextStyle(color: Colors.red)),
+                  label: Text(context.tr('cancel'), style: const TextStyle(color: Colors.red)),
                 ),
               ),
           ]),
         ),
-      );
+      ),
+    );
+  }
 
-  Widget list(List items, String empty) => items.isEmpty
-      ? Center(child: Text(empty))
-      : RefreshIndicator(onRefresh: load, child: ListView(children: items.map((b) => card(b)).toList()));
+  Widget list(List<Booking> items, String emptyKey) => RefreshIndicator(
+        onRefresh: load,
+        child: items.isEmpty
+            ? EmptyState(Icons.event_seat_outlined, context.tr(emptyKey))
+            : ListView.builder(
+                itemCount: items.length,
+                itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(items[i])),
+              ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    final upcoming = bookings.where((b) => isUpcoming(b)).toList();
-    final history = bookings.where((b) => !isUpcoming(b)).toList();
+    if (loading) return const SkeletonList();
+    final valid = bookings.where((b) => b.ride != null).toList();
+    final upcoming = valid.where((b) => b.isUpcoming).toList();
+    final history = valid.where((b) => !b.isUpcoming).toList();
     return DefaultTabController(
       length: 2,
       child: Column(children: [
-        const TabBar(tabs: [Tab(text: 'À venir'), Tab(text: 'Historique')]),
-        Expanded(child: TabBarView(children: [
-          list(upcoming, 'Aucune réservation à venir'),
-          list(history, 'Aucun historique'),
-        ])),
+        TabBar(tabs: [
+          Tab(text: '${context.tr('upcoming')} (${upcoming.length})'),
+          Tab(text: context.tr('history')),
+        ]),
+        Expanded(
+          child: TabBarView(children: [
+            list(upcoming, 'no_upcoming_bookings'),
+            list(history, 'no_history'),
+          ]),
+        ),
       ]),
     );
   }
