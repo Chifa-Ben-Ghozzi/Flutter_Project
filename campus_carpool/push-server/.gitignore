@@ -1,0 +1,3 @@
+# Clé privée du compte de service Firebase : NE JAMAIS la publier
+service-account.json
+node_modules/

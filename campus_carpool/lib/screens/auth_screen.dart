@@ -141,8 +141,8 @@ class _AuthScreenState extends State<AuthScreen> {
       _showError(l10n.trServer(e.message));
     } catch (e) {
       debugPrint('AUTH ERROR: $e');
-      // En mode debug, on affiche aussi l'adresse du serveur pour aider au diagnostic
-      _showError(kDebugMode ? '${l10n.tr('err_server')}\n${Api.base}' : l10n.tr('err_server'));
+      // En mode debug, on affiche aussi l'erreur technique pour aider au diagnostic
+      _showError(kDebugMode && e is! NetworkException ? '${l10n.tr('err_server')}\n$e' : l10n.tr('err_server'));
     }
     if (mounted) setState(() => busy = false);
   }

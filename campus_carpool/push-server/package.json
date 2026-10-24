@@ -1,0 +1,14 @@
+{
+  "name": "campus-carpool-push-server",
+  "version": "1.0.0",
+  "description": "Sends Firebase Cloud Messaging push notifications for new Firestore notifications (free Spark plan, no Cloud Functions needed)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "seed": "node seed.js",
+    "test:rules": "node rules-test.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

@@ -49,3 +49,6 @@ app.*.map.json
 node_modules/
 db.json
 db.backup-*.json
+# Firebase service account keys (secret)
+**/service-account*.json
+*firebase-adminsdk*.json
