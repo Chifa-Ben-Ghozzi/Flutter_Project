@@ -2,179 +2,152 @@
 
 ### Your campus. Your route. Your ride.
 
-Campus Carpool is a Flutter app that helps university communities share rides. Find a seat, offer a trip, talk to your driver, rate each other after the ride and get notified at every step. The app talks to a lightweight Node.js/Express API, with data persisted in a JSON file.
+Campus Carpool is a Flutter app that helps university communities share rides. Find a seat, offer a trip, talk to your driver, rate each other after the ride and get notified at every step. It runs on **Firebase**: Authentication for accounts, Cloud Firestore for real-time data, security rules for the business logic, and Cloud Messaging for push notifications.
 
 > **Project layout:** The Campus Carpool app lives in [`campus_carpool/`](campus_carpool/). Run Flutter commands from that directory. The repository-root `lib/` directory is a separate Flutter starter scaffold.
 
 ## ✨ Features
 
 **Rides**
-- **Join with a university email** — registration accepts university-style domains (`univ`, `.edu`, `.ac.*`).
+- **Join with a university email** — Firebase Authentication; only university-style domains (`univ`, `.edu`, `.ac.*`) can create a profile (checked in the app and in the security rules).
 - **Find a ride** — filter open trips by destination, date, maximum price and minimum free seats.
 - **Offer a ride** — a validated form (departure ≠ destination, future date/time, 1–8 seats, positive price).
 - **Ride details with a map** — OpenStreetMap view of the route with real road distance and travel time, plus a one-tap "Directions" link to Google Maps.
-- **Handle requests** — drivers accept or decline; seats update automatically.
+- **Handle requests** — drivers accept or decline; seats update automatically in a Firestore transaction.
 
 **Trust & communication**
-- **Call or WhatsApp** — once a booking is accepted, driver and passenger get *Call* and *WhatsApp* buttons (WhatsApp opens with a pre-written message).
-- **Ratings & reviews** — after the ride, driver and passenger rate each other (1–5 ★ + comment). Averages appear on ride cards, ride details and public profiles.
-- **Notifications** — bell with an unread badge, a notification list, and Android status-bar notifications for new requests, acceptances, refusals, cancellations and reviews.
+- **Call or WhatsApp** — once a booking is accepted, driver and passenger get *Call* and *WhatsApp* buttons.
+- **Ratings & reviews** — after the ride, driver and passenger rate each other (1–5 ★ + comment), once per ride.
+- **Real-time notifications** — the bell badge updates instantly (Firestore listener); Android notifications while the app is open, and **push notifications when it is closed** (Firebase Cloud Messaging through the free push server).
 
 **Experience**
-- **French / English** — every screen, the assistant and the notifications are translated; the choice is remembered.
-- **Dark mode** — light, dark or follow the system.
-- **Offline mode** — the last loaded lists are shown from a local cache with an "Offline" banner.
-- **Animations** — Hero transition from a ride card to its details, staggered list entrances, `AnimatedList` notifications, shimmer loading skeletons.
-- **Profile statistics** — a `GridView` of rides as driver/passenger, seats shared, upcoming trips, rating and reviews.
-- **Campus Guide** — an offline assistant that answers common questions and jumps to the right tab.
+- **French / English**, **dark mode**, **offline mode** (Firestore local cache + "Offline" banner).
+- **Animations** — Hero transition, staggered lists, `AnimatedList`, shimmer skeletons.
+- **Profile statistics** (`GridView`) and an offline **Campus Guide** assistant.
 
 ## 🎓 Course concepts → where to find them
 
 | Course topic | Where it is used |
 | --- | --- |
-| Cross-platform development | One codebase for Android, web and desktop; `api.dart` picks the server address per platform |
+| Cross-platform development | One codebase for Android and web, configured for both in `firebase_options.dart` |
 | Everything is a widget / layout widgets | All screens: `Row`, `Column`, `Expanded`, `Stack`, `Wrap`, `Card`, `Container`, custom widgets in `widgets.dart` |
 | Lists — `ListView` | `search_screen.dart`, `my_rides_screen.dart`, `my_bookings_screen.dart`, `notifications_screen.dart` (`AnimatedList`) |
 | Lists — `GridView` | Statistics grid in `profile_screen.dart` (`GridView.builder`) |
 | Forms — `Form`, `TextFormField`, validators | `post_ride_screen.dart`, `profile_screen.dart`; rules in `validators.dart` (unit-tested) |
 | Navigation — named routes & `Navigator` | `routes.dart` (`routes:`, `onGenerateRoute` with arguments, `onUnknownRoute`), `Navigator.pushNamed` |
-| External APIs — `http` | `api.dart` (REST + JSON, bearer token, timeout, offline cache); OSRM routing in `widgets/ride_map.dart` |
+| External APIs | Firebase (Auth, Firestore, Messaging) in `api.dart` and `providers/`; `http` for OpenStreetMap geocoding and OSRM routing |
 | State management | `provider` package: `AuthProvider`, `NotificationsProvider`, `SettingsProvider`, `L10n` |
 
 ## 🧱 Architecture
 
 ```text
-Flutter client (campus_carpool/lib)
-  screens/      UI (one file per screen)
-  providers/    shared state with Provider (session, notifications, settings)
-  models.dart   typed models: AppUser, Ride, Booking, RideDetails, Review, AppNotification
-  api.dart      HTTP service (package http) + offline cache
-        │  HTTP + JSON, bearer-token authentication
+Flutter app (campus_carpool/lib)
+  screens/     UI (one file per screen)
+  providers/   shared state: AuthProvider (Firebase Auth), NotificationsProvider (Firestore listener + FCM), SettingsProvider
+  models.dart  typed models
+  api.dart     all Firestore reads/writes (batches and transactions)
+        │
         ▼
-Express API (campus_carpool/backend/server.js)
-        │  reads and writes            │  geocoding (OpenStreetMap Nominatim, cached)
-        ▼                              ▼
-JSON datastore (backend/db.json)   ride coordinates for the map
+Firebase project (campus-carpool-a1d40, free Spark plan)
+  Authentication    email + password
+  Cloud Firestore   users · rides · bookings · reviews · notifications
+  firestore.rules   who can do what (enforced by Google's servers)
+  Cloud Messaging   push notifications
+        ▲
+        │  listens to new notifications, sends the push (firebase-admin)
+push-server/ (Node.js, runs on your PC or any free host)
 ```
 
-- **Models** — every JSON response is converted with `fromJson` into a typed Dart object, so screens use `ride.price` instead of `ride['price']`.
-- **Providers** — `AuthProvider` (current user, login/logout, profile), `NotificationsProvider` (polls the API every 15 s, unread badge, Android notifications), `SettingsProvider` (theme), `L10n` (language). Screens rebuild automatically with `context.watch`.
-- **Notifications** are created by the API on each event and fetched by the app. They show while the app is open or in the background; push notifications to a fully closed app would require Firebase Cloud Messaging.
-- **Storage** — the JSON-file backend is meant for development and demos (no transactions or production controls).
+**Firestore collections**
+
+| Collection | Content | Who can write |
+| --- | --- | --- |
+| `users/{uid}` | name, email, phone, car, photo, `ratingSum` / `ratingCount`, `fcmTokens`, `lang` | The user (profile); a reviewer can only add their rating |
+| `rides/{id}` | route, date/time, seats, price, status, coordinates | The driver; a passenger can only give back their seat |
+| `bookings/{id}` | ride, passenger, driver, status | The passenger creates/cancels; the driver accepts/declines |
+| `reviews/{ride_from_to}` | stars, comment, author | Only someone who shared that ride, after it, once |
+| `notifications/{id}` | recipient, type, data (name, route, date…), read, pushed | Created for someone else; only the recipient reads them |
+
+**Why a push server?** Pushing to a closed app normally needs Cloud Functions, which require the paid Blaze plan. Sending through FCM is free, so a small Node.js process (`push-server/index.js`) listens to new notifications with the Admin SDK and sends them. While it is not running, users still get notifications in real time inside the app.
 
 ## 🚀 Run locally
 
 ### Requirements
+- Flutter SDK (Dart 3.x), Node.js 18+
+- Access to the Firebase project `campus-carpool-a1d40`
+- `push-server/service-account.json` — Firebase console › Project settings › Service accounts › *Generate new private key* (secret, never committed)
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) with Dart 3.x
-- [Node.js](https://nodejs.org/) 18+ and npm
-- An Android phone (USB debugging on), an emulator, or Chrome
-
-### 1. Start the API (with demo data)
-
+### 1. Demo data (once)
 ```sh
-cd campus_carpool/backend
+cd campus_carpool/push-server
 npm install
-npm run seed     # optional: realistic demo users, rides, bookings and reviews
-npm start        # API on http://localhost:3000
+npm run seed        # recreates the demo accounts, rides, bookings and reviews
 ```
-
-`npm run seed` backs up the current `db.json` to `db.backup-<date>.json` first.
-
 **Demo accounts** (password `demo123`): `demo@esprit.univ.tn`, `amira.bensalah@esprit.univ.tn`, `youssef.trabelsi@esprit.univ.tn`, `sarra.gharbi@esprit.univ.tn`, `mehdi.jaziri@esprit.univ.tn`, `ines.mansour@esprit.univ.tn`.
 
-### 2. Run the app
+### 2. Push server (for notifications when the app is closed)
+```sh
+cd campus_carpool/push-server
+npm start
+```
 
+### 3. The app
 ```sh
 cd campus_carpool
 flutter pub get
+flutter run -d chrome          # web
+flutter run -d <device-id>     # Android phone (USB debugging) — no server address or adb reverse needed
 ```
+The app talks directly to Firebase over the internet, so any phone or browser with internet works, on any network.
 
-| Target | Command |
-| --- | --- |
-| Android phone over **USB** (simplest) | `adb reverse tcp:3000 tcp:3000` then `flutter run --dart-define=API_HOST=127.0.0.1` |
-| Android phone over **Wi-Fi** | `flutter run --dart-define=API_HOST=<your PC's IP>` (same Wi-Fi, firewall allows port 3000) |
-| Android emulator | `flutter run --dart-define=API_HOST=10.0.2.2` |
-| Chrome | `flutter run -d chrome` |
-
-**Tip for the demo:** run the app on a phone *and* in Chrome, log in with two different demo accounts, then request a seat on one and watch the notification arrive on the other.
-
-### 3. Build an installable APK
-
+### Deploy rule changes
 ```sh
-flutter build apk --release --dart-define=API_HOST=<your PC's IP>
-# -> build/app/outputs/flutter-apk/app-release.apk
+firebase deploy --only firestore:rules
 ```
-
-## 🔌 API at a glance
-
-All endpoints except registration and login require the bearer token returned by authentication.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/auth/register`, `/auth/login` | Create an account / sign in |
-| `GET` / `PUT` | `/me` | Fetch or update the signed-in profile (includes rating) |
-| `GET` | `/users/:id` | Public profile with rating and latest reviews |
-| `GET` / `POST` | `/rides` | Search open rides (`destination`, `date`, `maxPrice`, `minSeats`) / publish a ride |
-| `GET` | `/rides/mine` | Rides offered by the signed-in driver, with requests |
-| `GET` | `/rides/:id` | Ride details: driver, passengers, coordinates, my booking, who I can rate |
-| `POST` | `/rides/:id/book` · `/rides/:id/cancel` | Request a seat · cancel a ride (driver) |
-| `POST` | `/rides/:id/review` | Rate the driver or a passenger after the ride |
-| `GET` | `/bookings/mine` | The signed-in passenger's bookings |
-| `POST` | `/bookings/:id/respond` · `/bookings/:id/cancel` | Accept/decline (driver) · cancel (passenger) |
-| `GET` | `/notifications` · `/notifications/poll` | Notification list · unread count + new notifications |
-| `POST` | `/notifications/read` | Mark all as read |
 
 ## 🧪 Tests & quality
 
 ```sh
 cd campus_carpool
-flutter analyze        # 0 issues (flutter_lints)
-flutter test           # unit + widget tests
+flutter analyze            # 0 issues (flutter_lints)
+flutter test               # 48 tests, Firestore simulated in memory (fake_cloud_firestore)
 
-cd backend
-npm test               # API tests on a temporary copy of the data
+cd push-server
+npm run test:rules         # 18 checks of firestore.rules on the real project (then: npm run seed)
 ```
 
 | Test file | What it checks |
 | --- | --- |
-| `test/validators_test.dart` | Every form rule (places, date/time, seats, price, phone, plate) |
-| `test/models_test.dart` | JSON → model conversion and computed properties, profile statistics |
-| `test/l10n_test.dart` | Every text exists in FR **and** EN, every `context.tr('…')` has a translation, notifications are translated |
-| `test/widget_test.dart` | Forms show validation errors (FR/EN), named routes, ride details + booking against a mocked API, offline error |
-| `test/app_flow_test.dart` | Full signed-in journey: all tabs, notifications, dark mode, language switch |
-| `backend/test.js` | Demo data, booking flow, notifications, ride details permissions, reviews rules, cancellations, auth |
+| `test/api_test.dart` | Booking, accepting, cancelling, ratings, notifications and permissions on an in-memory Firestore |
+| `test/validators_test.dart` | Every form rule |
+| `test/models_test.dart` | JSON → typed models, computed properties, statistics |
+| `test/l10n_test.dart` | Every text exists in FR and EN, every `context.tr('…')` has a translation |
+| `test/widget_test.dart` | Forms (FR/EN), named routes, ride details and booking |
+| `test/app_flow_test.dart` | Full signed-in journey: tabs, real-time notification, dark mode, language |
+| `push-server/rules-test.js` | Allowed actions pass and forbidden ones are refused by the live security rules |
 
 ## 🗂️ Project map
 
 ```text
 campus_carpool/
 ├── lib/
-│   ├── main.dart              # providers, themes, named routes
-│   ├── api.dart               # HTTP service + offline cache
-│   ├── models.dart            # typed models
-│   ├── routes.dart            # named routes
-│   ├── validators.dart        # form rules
-│   ├── l10n.dart              # FR / EN texts
-│   ├── widgets.dart           # shared widgets, animations, skeletons
-│   ├── widgets/ride_map.dart  # OpenStreetMap + route
-│   ├── providers/             # auth, notifications, settings
-│   └── screens/               # one file per screen
-├── test/                      # Flutter tests
-├── backend/
-│   ├── server.js              # Express API
-│   ├── seed.js                # demo data (npm run seed)
-│   ├── test.js                # API tests (npm test)
-│   └── db.json                # data (not committed)
+│   ├── main.dart               # Firebase init, providers, themes, named routes
+│   ├── firebase_options.dart   # generated by flutterfire configure
+│   ├── api.dart                # Firestore data layer
+│   ├── models.dart  routes.dart  validators.dart  l10n.dart  widgets.dart
+│   ├── widgets/ride_map.dart   # OpenStreetMap + route
+│   ├── providers/              # auth, notifications, settings
+│   └── screens/
+├── test/
+├── firestore.rules             # security rules
+├── firebase.json  .firebaserc  # Firebase CLI configuration
+├── push-server/                # push sender, demo data, rules tests (Node.js + firebase-admin)
 └── pubspec.yaml
 ```
 
 ## 🛠️ Built with
-
-- **Flutter / Dart** — cross-platform UI (Material 3, light & dark themes)
-- **provider** — state management
-- **http** — REST client · **shared_preferences** — session, settings and offline cache
-- **flutter_map + latlong2** — OpenStreetMap maps · **OSRM** — road routing · **Nominatim** — geocoding
-- **flutter_local_notifications** — Android notifications · **url_launcher** — call, WhatsApp, directions
-- **image_picker** — profile photo · **flutter_launcher_icons** — app icon
-- **Node.js + Express** — REST API · **JSON file storage**
+- **Flutter / Dart**, **provider**
+- **Firebase**: firebase_auth, cloud_firestore, firebase_messaging; firebase-admin (push server)
+- **flutter_map + latlong2** (OpenStreetMap), **OSRM** routing, **Nominatim** geocoding, **http**
+- **flutter_local_notifications**, **url_launcher**, **image_picker**, **shared_preferences**
+- Tests: **flutter_test**, **fake_cloud_firestore**

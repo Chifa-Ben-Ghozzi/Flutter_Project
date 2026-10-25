@@ -1,0 +1,163 @@
+rules_version = '2';
+
+// Règles de sécurité Firestore de Campus Carpool.
+// Elles remplacent les vérifications de l'ancien serveur Node : même si quelqu'un modifie l'app,
+// Firebase refuse toute écriture qui ne respecte pas ces règles.
+// Déploiement : firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+
+    // Email universitaire : domaine contenant "univ", ou un domaine en .edu / .ac.xx
+    function isUniEmail(email) {
+      return email.lower().matches('^[^@ ]+@([^@ ]*univ[^@ ]*|([^@ ]+[.])?(edu|ac)([.][^@ ]+)?)$');
+    }
+
+    // ---------- Utilisateurs ----------
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if signedIn() && me() == uid
+        && isUniEmail(request.auth.token.email)
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.ratingSum == 0
+        && request.resource.data.ratingCount == 0;
+
+      // Le propriétaire modifie son profil (jamais sa note ni son email),
+      // ou quelqu'un qui vient de publier un avis met à jour la note de la personne notée.
+      allow update: if signedIn() && (ownProfileEdit(uid) || ratingUpdate(uid));
+    }
+
+    function ownProfileEdit(uid) {
+      return me() == uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['ratingSum', 'ratingCount', 'lastReview', 'email'])
+        && (request.resource.data.get('photo', null) == null
+            || request.resource.data.photo.size() < 400000);
+    }
+
+    function ratingUpdate(uid) {
+      let d = request.resource.data;
+      let review = getAfter(/databases/$(database)/documents/reviews/$(d.lastReview)).data;
+      return me() != uid
+        && d.diff(resource.data).affectedKeys().hasOnly(['ratingSum', 'ratingCount', 'lastReview'])
+        && !exists(/databases/$(database)/documents/reviews/$(d.lastReview))      // l'avis est créé dans ce même envoi
+        && review.toId == uid && review.fromId == me()
+        && d.ratingCount == resource.data.ratingCount + 1
+        && d.ratingSum == resource.data.ratingSum + review.stars;
+    }
+
+    // ---------- Trajets ----------
+    match /rides/{rideId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validNewRide();
+      // Le conducteur change le statut ou les places ; un passager rend sa place en annulant.
+      allow update: if signedIn() && (driverRideEdit() || seatReturned(rideId));
+    }
+
+    function validNewRide() {
+      let d = request.resource.data;
+      return d.driverId == me() && d.status == 'open'
+        && d.from is string && d.from.size() >= 2 && d.to is string && d.to.size() >= 2
+        && d.seats is int && d.seats >= 1 && d.seats <= 8 && d.seatsLeft == d.seats
+        && d.price is number && d.price >= 0 && d.price <= 200
+        && d.dateTime is timestamp && d.dateTime > request.time;
+    }
+
+    function driverRideEdit() {
+      let d = request.resource.data;
+      return resource.data.driverId == me()
+        && d.diff(resource.data).affectedKeys().hasOnly(['status', 'seatsLeft'])
+        && d.status in ['open', 'cancelled']
+        && d.seatsLeft >= 0 && d.seatsLeft <= d.seats;
+    }
+
+    function seatReturned(rideId) {
+      let d = request.resource.data;
+      let booking = /databases/$(database)/documents/bookings/$(d.lastBooking);
+      return d.diff(resource.data).affectedKeys().hasOnly(['seatsLeft', 'lastBooking'])
+        && d.seatsLeft == resource.data.seatsLeft + 1
+        && get(booking).data.rideId == rideId
+        && get(booking).data.passengerId == me()
+        && get(booking).data.status == 'accepted'
+        && getAfter(booking).data.status == 'cancelled';
+    }
+
+    // ---------- Réservations ----------
+    match /bookings/{bookingId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validNewBooking();
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && (driverAnswers() || driverCancelsRide() || passengerCancels());
+    }
+
+    function validNewBooking() {
+      let d = request.resource.data;
+      let ride = get(/databases/$(database)/documents/rides/$(d.rideId)).data;
+      return d.keys().hasOnly(['rideId', 'passengerId', 'driverId', 'status', 'createdAt'])
+        && d.passengerId == me() && d.status == 'pending'
+        && d.driverId == ride.driverId && ride.driverId != me()
+        && ride.status == 'open' && ride.seatsLeft > 0 && ride.dateTime > request.time;
+    }
+
+    function driverAnswers() {
+      return resource.data.driverId == me()
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'declined'];
+    }
+
+    function driverCancelsRide() {
+      return resource.data.driverId == me()
+        && resource.data.status in ['pending', 'accepted']
+        && request.resource.data.status == 'cancelled'
+        && getAfter(/databases/$(database)/documents/rides/$(resource.data.rideId)).data.status == 'cancelled';
+    }
+
+    function passengerCancels() {
+      return resource.data.passengerId == me()
+        && resource.data.status in ['pending', 'accepted']
+        && request.resource.data.status == 'cancelled';
+    }
+
+    // ---------- Avis (id = trajet_auteur_personneNotée : un seul avis par personne et par trajet) ----------
+    match /reviews/{reviewId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validReview(reviewId);
+      // Pas de modification ni de suppression : un avis est définitif
+    }
+
+    function validReview(reviewId) {
+      let d = request.resource.data;
+      let ride = get(/databases/$(database)/documents/rides/$(d.rideId)).data;
+      let b = get(/databases/$(database)/documents/bookings/$(d.bookingId)).data;
+      return reviewId == d.rideId + '_' + me() + '_' + d.toId
+        && d.fromId == me() && d.toId != me()
+        && d.stars is int && d.stars >= 1 && d.stars <= 5
+        && d.comment is string && d.comment.size() <= 300
+        && ride.status != 'cancelled' && ride.dateTime < request.time
+        && b.rideId == d.rideId && b.status == 'accepted'
+        && ((ride.driverId == me() && b.passengerId == d.toId)
+            || (ride.driverId == d.toId && b.passengerId == me()));
+    }
+
+    // ---------- Notifications ----------
+    match /notifications/{notifId} {
+      allow read: if signedIn() && resource.data.userId == me();
+      // On notifie toujours quelqu'un d'autre ; le serveur push (Admin SDK) n'est pas soumis aux règles
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['userId', 'type', 'rideId', 'data', 'read', 'pushed', 'createdAt'])
+        && request.resource.data.userId != me()
+        && request.resource.data.type in ['booking_new', 'booking_accepted', 'booking_declined',
+                                          'booking_cancelled', 'ride_cancelled', 'review']
+        && request.resource.data.read == false
+        && request.resource.data.pushed == false;
+      allow update: if signedIn() && resource.data.userId == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+  }
+}

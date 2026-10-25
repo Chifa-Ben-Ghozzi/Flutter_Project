@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api.dart';
+import 'firebase_options.dart';
 import 'l10n.dart';
 import 'providers/auth_provider.dart';
 import 'providers/notifications_provider.dart';
@@ -16,12 +19,18 @@ final navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Firebase (projet configuré par `flutterfire configure` -> firebase_options.dart)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Cache local de Firestore : l'app affiche les dernières données même hors ligne
+  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+
   // Objets d'état partagés (Provider), créés une seule fois
   final l10n = L10n();
   final settings = SettingsProvider();
   final auth = AuthProvider();
   final notifs = NotificationsProvider(auth, l10n);
   await Future.wait([l10n.load(), settings.load()]);
+  l10n.addListener(notifs.syncLanguage); // langue des notifications push
 
   runApp(MultiProvider(
     providers: [

@@ -1,15 +1,13 @@
-import 'dart:convert';
-
 import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/routes.dart';
 import 'package:campus_carpool/screens/post_ride_screen.dart';
 import 'package:campus_carpool/screens/ride_details_screen.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'fake_data.dart';
 import 'helpers.dart';
 
 void main() {
@@ -67,51 +65,18 @@ void main() {
     });
   });
 
-  group('Détails du trajet + API (http MockClient)', () {
-    // Faux serveur : un trajet, puis une demande en attente après la réservation
-    late List<String> calls;
-    var booked = false;
-
-    Map<String, dynamic> details() => {
-          'id': 'r1',
-          'driverId': 'u1',
-          'from': 'Ariana',
-          'to': 'Esprit',
-          'date': '2099-01-01',
-          'time': '08:30',
-          'seats': 3,
-          'seatsLeft': 2,
-          'price': 4,
-          'status': 'open',
-          'driver': {'id': 'u1', 'name': 'Amira', 'phone': '22123456', 'car': {'model': 'Clio', 'plate': '215 TU 1'}, 'rating': 4.5, 'ratingCount': 2},
-          'isDriver': false,
-          'finished': false,
-          'myBooking': booked ? {'id': 'b1', 'rideId': 'r1', 'passengerId': 'me', 'status': 'pending'} : null,
-          'bookings': [],
-          'toRate': [],
-        };
-
-    setUp(() {
-      calls = [];
-      booked = false;
-      Api.token = 'test-token';
-      Api.client = MockClient((req) async {
-        calls.add('${req.method} ${req.url.path}');
-        expect(req.headers['Authorization'], 'Bearer test-token');
-        if (req.method == 'POST' && req.url.path == '/rides/r1/book') {
-          booked = true;
-          return http.Response('{}', 200);
-        }
-        if (req.url.path == '/rides/r1') return http.Response(jsonEncode(details()), 200, headers: {'content-type': 'application/json; charset=utf-8'});
-        return http.Response('{"error":"Trajet introuvable"}', 404);
-      });
+  group('Détails du trajet (Firestore en mémoire)', () {
+    late FakeFirebaseFirestore db;
+    setUp(() async {
+      db = await fakeDb();
+      Api.uid = 'demo';
     });
 
-    testWidgets('affiche le trajet, réserve une place, puis propose d\'annuler', (tester) async {
-      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'r1')));
+    testWidgets("affiche le trajet, réserve une place, puis propose d'annuler", (tester) async {
+      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'future')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ariana → Esprit'), findsOneWidget);
+      expect(find.text('Ariana → Esprit Ghazela'), findsOneWidget);
       expect(find.text('Amira'), findsOneWidget);
       expect(find.text(' 4.5'), findsOneWidget); // note du conducteur
       expect(find.text('Appeler'), findsNothing); // pas encore accepté
@@ -119,19 +84,26 @@ void main() {
       await tester.tap(find.text('Demander une place · 4 dt'));
       await tester.pumpAndSettle();
 
-      expect(calls, contains('POST /rides/r1/book'));
+      expect((await db.collection('bookings').get()).docs.single.data()['status'], 'pending');
       expect(find.text('Demande envoyée au conducteur'), findsOneWidget);
       expect(find.text('Annuler ma demande'), findsOneWidget);
       expect(find.textContaining('une fois votre demande acceptée'), findsOneWidget);
     });
 
-    testWidgets('serveur injoignable : message d\'erreur', (tester) async {
-      Api.client = MockClient((_) async => throw Exception('offline'));
-      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'r1')));
+    testWidgets('passager accepté : boutons Appeler et WhatsApp', (tester) async {
+      await acceptedBooking(db, 'future', 'demo');
+      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'future')));
       await tester.pumpAndSettle();
-      expect(find.text('Serveur indisponible. Vérifiez votre connexion.'), findsOneWidget);
+      expect(find.text('Appeler'), findsOneWidget);
+      expect(find.text('WhatsApp'), findsOneWidget);
+      expect(find.text('Annuler ma place'), findsOneWidget);
+    });
+
+    testWidgets('trajet introuvable : message et bouton Réessayer', (tester) async {
+      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'nexiste-pas')));
+      await tester.pumpAndSettle();
+      expect(find.text('Trajet introuvable'), findsOneWidget);
       expect(find.text('Réessayer'), findsOneWidget);
-      expect(Api.network.online, isFalse);
     });
   });
 }
