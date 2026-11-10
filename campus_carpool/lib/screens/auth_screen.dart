@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -147,6 +148,35 @@ class _AuthScreenState extends State<AuthScreen> {
     if (mounted) setState(() => busy = false);
   }
 
+  void _suggestPassword() {
+    final random = Random.secure();
+    const lowercase = 'abcdefghijkmnopqrstuvwxyz';
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const digits = '23456789';
+    const symbols = '!@#\$%&*+-_=';
+    const allCharacters = '$lowercase$uppercase$digits$symbols';
+    String choose(String characters) => characters[random.nextInt(characters.length)];
+
+    final characters = [
+      choose(lowercase),
+      choose(uppercase),
+      choose(digits),
+      choose(symbols),
+      for (var i = 0; i < 12; i++) choose(allCharacters),
+    ]..shuffle(random);
+    final suggestion = characters.join();
+    final value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
+    );
+
+    setState(() {
+      pwd.value = value;
+      confirm.value = value;
+      bad.removeAll({'pwd', 'confirm'});
+    });
+  }
+
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
@@ -286,6 +316,14 @@ class _AuthScreenState extends State<AuthScreen> {
           curve: Curves.easeOut,
           child: register
               ? Column(children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: busy ? null : _suggestPassword,
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: Text(context.tr('suggest_password')),
+                    ),
+                  ),
                   if (pwd.text.isNotEmpty) _strengthBar(),
                   const SizedBox(height: 12),
                   _field(
@@ -380,9 +418,11 @@ class _AuthScreenState extends State<AuthScreen> {
       child: Row(children: [
         Icon(ok ? Icons.check_circle : Icons.cancel, size: 16, color: ok ? Colors.green : Colors.red),
         const SizedBox(width: 6),
-        Text(
-          ok ? context.tr('pwd_match_ok') : context.tr('err_pwd_match'),
-          style: TextStyle(fontSize: 12, color: ok ? Colors.green.shade700 : Colors.red),
+        Expanded(
+          child: Text(
+            ok ? context.tr('pwd_match_ok') : context.tr('err_pwd_match'),
+            style: TextStyle(fontSize: 12, color: ok ? Colors.green.shade700 : Colors.red),
+          ),
         ),
       ]),
     );

@@ -117,6 +117,7 @@ const strings = <String, Map<String, String>>{
     'pwd_weak': 'Faible',
     'pwd_medium': 'Moyen',
     'pwd_strong': 'Fort',
+    'suggest_password': 'Suggérer un mot de passe',
 
     // ---- Navigation ----
     'tab_search': 'Chercher',
@@ -335,6 +336,7 @@ const strings = <String, Map<String, String>>{
     'pwd_weak': 'Weak',
     'pwd_medium': 'Medium',
     'pwd_strong': 'Strong',
+    'suggest_password': 'Suggest a password',
 
     // ---- Navigation ----
     'tab_search': 'Search',

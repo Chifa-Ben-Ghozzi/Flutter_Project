@@ -1,5 +1,6 @@
 import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/routes.dart';
+import 'package:campus_carpool/screens/auth_screen.dart';
 import 'package:campus_carpool/screens/post_ride_screen.dart';
 import 'package:campus_carpool/screens/ride_details_screen.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -12,6 +13,25 @@ import 'helpers.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('suggested signup password fills both password fields securely', (tester) async {
+    await tester.pumpWidget(testApp(const AuthScreen()));
+    await tester.tap(find.text('Pas de compte ? Inscription'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Suggérer un mot de passe'));
+    await tester.pump();
+
+    final password = tester.widget<TextField>(find.byType(TextField).at(2)).controller!.text;
+    final confirmation = tester.widget<TextField>(find.byType(TextField).at(3)).controller!.text;
+    expect(password, hasLength(16));
+    expect(password, matches(RegExp(r'[a-z]')));
+    expect(password, matches(RegExp(r'[A-Z]')));
+    expect(password, matches(RegExp(r'\d')));
+    expect(password, matches(RegExp(r'[^A-Za-z0-9]')));
+    expect(confirmation, password);
+    expect(find.text('Fort'), findsOneWidget);
+  });
 
   group('Formulaire "Publier un trajet" (Form + validators)', () {
     testWidgets('formulaire vide : erreurs sous les champs', (tester) async {
