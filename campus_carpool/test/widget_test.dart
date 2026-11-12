@@ -1,5 +1,6 @@
 import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/routes.dart';
+import 'package:campus_carpool/screens/search_screen.dart';
 import 'package:campus_carpool/screens/auth_screen.dart';
 import 'package:campus_carpool/screens/post_ride_screen.dart';
 import 'package:campus_carpool/screens/ride_details_screen.dart';
@@ -124,6 +125,26 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Trajet introuvable'), findsOneWidget);
       expect(find.text('Réessayer'), findsOneWidget);
+    });
+  });
+
+  group('Recherche', () {
+    setUp(() async {
+      await fakeDb();
+      Api.uid = 'demo';
+    });
+
+    testWidgets('affiche le nombre de trajets trouvés', (tester) async {
+      await tester.pumpWidget(testApp(const Scaffold(body: SearchScreen())));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 offre trouvée'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).at(1), 'Sousse');
+      await tester.tap(find.text('Rechercher'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 offres trouvées'), findsOneWidget);
     });
   });
 }

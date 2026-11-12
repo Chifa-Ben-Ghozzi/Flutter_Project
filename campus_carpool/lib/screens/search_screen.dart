@@ -134,15 +134,29 @@ class _SearchScreenState extends State<SearchScreen> {
           duration: const Duration(milliseconds: 300),
           child: loading
               ? const SkeletonList()
-              : RefreshIndicator(
-                  onRefresh: load,
-                  child: rides.isEmpty
-                      ? EmptyState(Icons.search_off, context.tr('no_rides_found'))
-                      : ListView.builder(
-                          itemCount: rides.length,
-                          itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(rides[i])),
-                        ),
-                ),
+              : Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        context.tr(rides.length == 1 ? 'offer_count_one' : 'offer_count_other', {'count': rides.length}),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: load,
+                      child: rides.isEmpty
+                          ? EmptyState(Icons.search_off, context.tr('no_rides_found'))
+                          : ListView.builder(
+                              itemCount: rides.length,
+                              itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(rides[i])),
+                            ),
+                    ),
+                  ),
+                ]),
         ),
       ),
     ]);
