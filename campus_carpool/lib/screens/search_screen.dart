@@ -12,6 +12,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  final from = TextEditingController();
   final dest = TextEditingController();
   final price = TextEditingController();
   final seats = TextEditingController();
@@ -27,6 +28,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    from.dispose();
     dest.dispose();
     price.dispose();
     seats.dispose();
@@ -36,6 +38,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> load() async {
     setState(() => loading = true);
     final q = <String, String>{
+      if (from.text.trim().isNotEmpty) 'from': from.text.trim(),
       if (dest.text.trim().isNotEmpty) 'destination': dest.text.trim(),
       if (date != null) 'date': fmtDate(date!),
       if (price.text.trim().isNotEmpty) 'maxPrice': price.text.trim(),
@@ -69,6 +72,18 @@ class _SearchScreenState extends State<SearchScreen> {
       Padding(
         padding: const EdgeInsets.all(12),
         child: Column(children: [
+          TextField(
+            controller: from,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => load(),
+            decoration: InputDecoration(
+              labelText: context.tr('departure'),
+              prefixIcon: const Icon(Icons.trip_origin),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: dest,
             textInputAction: TextInputAction.search,

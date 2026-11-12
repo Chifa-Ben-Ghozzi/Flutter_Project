@@ -30,7 +30,9 @@ void main() {
       expect(rides.first.myBookingStatus, isNull);
     });
 
-    test('filtres : destination, prix max, places min', () async {
+    test('filtres : départ, destination, prix max, places min', () async {
+      expect(await Api.searchRides({'from': 'aria'}), hasLength(1));
+      expect(await Api.searchRides({'from': 'Tunis'}), isEmpty);
       expect(await Api.searchRides({'destination': 'esprit'}), hasLength(1));
       expect(await Api.searchRides({'destination': 'Sousse'}), isEmpty);
       expect(await Api.searchRides({'maxPrice': '3'}), isEmpty);

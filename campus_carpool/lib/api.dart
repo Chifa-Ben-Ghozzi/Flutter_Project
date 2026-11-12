@@ -176,6 +176,7 @@ class Api {
   static Future<List<Ride>> searchRides(Map<String, String> q) => _run(() async {
         final me = _me;
         final now = DateTime.now();
+        final from = q['from']?.toLowerCase();
         final dest = q['destination']?.toLowerCase();
         final maxPrice = double.tryParse(q['maxPrice'] ?? '');
         final minSeats = int.tryParse(q['minSeats'] ?? '');
@@ -183,6 +184,7 @@ class Api {
             .docs
             .map(_rideJson)
             .where((r) => r['driverId'] != me && (r['seatsLeft'] as num) > 0 && _rideDate(r).isAfter(now))
+            .where((r) => from == null || (r['from'] as String).toLowerCase().contains(from))
             .where((r) => dest == null || (r['to'] as String).toLowerCase().contains(dest))
             .where((r) => q['date'] == null || r['date'] == q['date'])
             .where((r) => maxPrice == null || (r['price'] as num) <= maxPrice)
