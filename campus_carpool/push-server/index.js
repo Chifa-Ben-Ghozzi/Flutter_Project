@@ -21,6 +21,7 @@ const texts = {
     booking_declined: ['Réservation refusée', '{name} a refusé votre demande pour {route}.'],
     booking_cancelled: ['Réservation annulée', '{name} a annulé sa place pour {route} ({date}).'],
     ride_cancelled: ['Trajet annulé', '{name} a annulé le trajet {route} du {date}.'],
+    ride_ended: ['Trajet terminé', '{name} a terminé le trajet {route} du {date}.'],
     review: ['Nouvel avis ⭐', '{name} vous a donné {stars}/5 pour {route}.'],
   },
   en: {
@@ -29,6 +30,7 @@ const texts = {
     booking_declined: ['Booking declined', '{name} declined your request for {route}.'],
     booking_cancelled: ['Booking cancelled', '{name} cancelled their seat for {route} ({date}).'],
     ride_cancelled: ['Ride cancelled', '{name} cancelled the ride {route} on {date}.'],
+    ride_ended: ['Ride completed', '{name} ended the ride {route} on {date}.'],
     review: ['New review ⭐', '{name} gave you {stars}/5 for {route}.'],
   },
 };

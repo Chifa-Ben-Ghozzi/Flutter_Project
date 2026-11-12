@@ -242,6 +242,7 @@ String notifBody(AppNotification n, L10n l10n) {
 IconData notifIcon(String type) => switch (type) {
       'booking_new' => Icons.person_add_alt_1,
       'booking_accepted' => Icons.check_circle,
+      'ride_ended' => Icons.flag,
       'booking_declined' => Icons.cancel,
       'booking_cancelled' || 'ride_cancelled' => Icons.event_busy,
       'review' => Icons.star,
@@ -250,6 +251,7 @@ IconData notifIcon(String type) => switch (type) {
 
 Color notifColor(String type) => switch (type) {
       'booking_accepted' => Colors.green,
+      'ride_ended' => Colors.green,
       'booking_declined' || 'booking_cancelled' || 'ride_cancelled' => Colors.red,
       'review' => Colors.amber,
       _ => const Color(0xFF3F51B5),

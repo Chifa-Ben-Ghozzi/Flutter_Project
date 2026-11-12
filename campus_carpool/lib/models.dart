@@ -103,6 +103,7 @@ class Ride {
   DateTime get dateTime => DateTime.parse('${date}T$time:00');
   bool get isPast => dateTime.isBefore(DateTime.now());
   bool get isCancelled => status == 'cancelled';
+  bool get isCompleted => status == 'completed';
   bool get isUpcoming => status == 'open' && !isPast;
   bool get hasCoords => fromLat != null && toLat != null;
   String get route => '$from → $to';
@@ -148,7 +149,7 @@ class Booking {
   });
 
   bool get isActive => status == 'pending' || status == 'accepted';
-  bool get isUpcoming => isActive && ride != null && !ride!.isPast;
+  bool get isUpcoming => isActive && ride != null && ride!.isUpcoming;
 
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'],
@@ -251,10 +252,10 @@ class ProfileStats {
   const ProfileStats({this.ridesAsDriver = 0, this.ridesAsPassenger = 0, this.seatsShared = 0, this.upcoming = 0});
 
   factory ProfileStats.compute(List<Ride> myRides, List<Booking> myBookings) {
-    final done = myRides.where((r) => !r.isCancelled && r.isPast);
+    final done = myRides.where((r) => !r.isCancelled && (r.isCompleted || r.isPast));
     return ProfileStats(
       ridesAsDriver: done.length,
-      ridesAsPassenger: myBookings.where((b) => b.status == 'accepted' && b.ride != null && b.ride!.isPast).length,
+      ridesAsPassenger: myBookings.where((b) => b.status == 'accepted' && b.ride != null && (b.ride!.isCompleted || b.ride!.isPast)).length,
       seatsShared: done.fold(0, (s, r) => s + r.seats - r.seatsLeft),
       upcoming: myRides.where((r) => r.isUpcoming).length + myBookings.where((b) => b.isUpcoming).length,
     );

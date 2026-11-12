@@ -126,6 +126,27 @@ void main() {
       expect(find.text('Trajet introuvable'), findsOneWidget);
       expect(find.text('Réessayer'), findsOneWidget);
     });
+
+    testWidgets('le passager termine son trajet puis peut noter avec un commentaire facultatif', (tester) async {
+      await acceptedBooking(db, 'future', 'demo');
+      await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'future')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Terminer le trajet'));
+      await tester.pumpAndSettle();
+      expect(find.text('Terminer ce trajet ?'), findsOneWidget);
+
+      await tester.tap(find.text('Oui'));
+      await tester.pumpAndSettle();
+      expect(find.text('Trajet terminé'), findsOneWidget);
+
+      final rateButton = find.text('Noter').last;
+      await tester.scrollUntilVisible(rateButton, 100, scrollable: find.byType(Scrollable).first);
+      await tester.tap(rateButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Noter Amira'), findsOneWidget);
+      expect(find.text('Commentaire (facultatif)'), findsOneWidget);
+    });
   });
 
   group('Recherche', () {

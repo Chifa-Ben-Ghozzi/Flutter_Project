@@ -42,6 +42,16 @@ void main() {
   test('trajet passé ou annulé : plus "à venir"', () {
     expect(Ride.fromJson(rideJson(date: '2000-01-01')).isUpcoming, isFalse);
     expect(Ride.fromJson(rideJson(status: 'cancelled')).isUpcoming, isFalse);
+    expect(Ride.fromJson(rideJson(status: 'completed')).isUpcoming, isFalse);
+    expect(Ride.fromJson(rideJson(status: 'completed')).isCompleted, isTrue);
+    final booking = Booking.fromJson({
+      'id': 'b1',
+      'rideId': 'r1',
+      'passengerId': 'me',
+      'status': 'accepted',
+      'ride': rideJson(status: 'completed'),
+    });
+    expect(booking.isUpcoming, isFalse);
   });
 
   test('myBooking : statut (recherche) ou objet (détails)', () {

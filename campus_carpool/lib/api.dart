@@ -250,7 +250,7 @@ class Api {
         final myBooking = mineAll.where((b) => b['status'] == 'pending' || b['status'] == 'accepted').firstOrNull ??
             mineAll.lastOrNull;
         final accepted = all.where((b) => b['status'] == 'accepted').toList();
-        final finished = r['status'] != 'cancelled' && _rideDate(r).isBefore(DateTime.now());
+        final finished = r['status'] == 'completed' || (r['status'] != 'cancelled' && _rideDate(r).isBefore(DateTime.now()));
         // Le conducteur voit toutes les demandes ; les autres ne voient que les passagers acceptés
         final visible = isDriver ? all : accepted;
         final people = await _usersById([r['driverId'], ...visible.map((b) => b['passengerId'] as String)]);
@@ -288,7 +288,7 @@ class Api {
         final me = _me;
         final rd = await _rides.doc(id).get();
         final r = rd.data();
-        if (r == null || r['driverId'] != me) throw ApiException('Trajet introuvable');
+        if (r == null || r['driverId'] != me || r['status'] != 'open') throw ApiException('Trajet introuvable');
         final active = (await _bookings.where('rideId', isEqualTo: id).get())
             .docs
             .where((d) => d.data()['status'] == 'pending' || d.data()['status'] == 'accepted');
@@ -356,6 +356,7 @@ class Api {
           if (b == null || b['driverId'] != me) throw ApiException('Réservation introuvable');
           final rRef = _rides.doc(b['rideId']);
           final r = (await tx.get(rRef)).data()!;
+          if (r['status'] != 'open') throw ApiException('Trajet indisponible');
           if (b['status'] != 'pending') throw ApiException('Demande déjà traitée');
           if (accept) {
             if ((r['seatsLeft'] as num) < 1) throw ApiException('Plus de places disponibles');
@@ -380,6 +381,7 @@ class Api {
           }
           final rRef = _rides.doc(b['rideId']);
           final r = (await tx.get(rRef)).data()!;
+          if (r['status'] != 'open') throw ApiException('Trajet indisponible');
           if (b['status'] == 'accepted') {
             // lastBooking permet aux règles de vérifier que c'est bien une place rendue par ce passager
             tx.update(rRef, {'seatsLeft': FieldValue.increment(1), 'lastBooking': bookingId});
@@ -397,7 +399,7 @@ class Api {
         if (stars < 1 || stars > 5) throw ApiException('Note entre 1 et 5');
         final r = (await _rides.doc(rideId).get()).data();
         if (r == null) throw ApiException('Trajet introuvable');
-        if (r['status'] == 'cancelled' || _rideDate(r).isAfter(DateTime.now())) {
+        if (r['status'] == 'cancelled' || (r['status'] != 'completed' && _rideDate(r).isAfter(DateTime.now()))) {
           throw ApiException('Vous pourrez noter après le trajet');
         }
         // La réservation acceptée qui relie les deux personnes (vérifiée aussi par les règles)
@@ -429,6 +431,43 @@ class Api {
         });
         _notify(batch, toId, 'review', r, rideId, {'name': myName, 'stars': stars});
         await batch.commit();
+      });
+
+  /// Un passager accepté termine le trajet ; les participants peuvent ensuite se noter.
+  static Future<void> endRide(String rideId, String bookingId) => _run(() async {
+        final me = _me;
+        final myName = await _myName();
+        final pendingBookings = (await _bookings.where('rideId', isEqualTo: rideId).get())
+            .docs
+            .where((d) => d.data()['status'] == 'pending')
+            .toList();
+        await db.runTransaction((tx) async {
+          final rideRef = _rides.doc(rideId);
+          final bookingRef = _bookings.doc(bookingId);
+          final ride = (await tx.get(rideRef)).data();
+          final booking = (await tx.get(bookingRef)).data();
+          final pending = <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+          for (final doc in pendingBookings) {
+            final current = (await tx.get(doc.reference)).data();
+            if (current != null && current['status'] == 'pending' && current['driverId'] == ride?['driverId']) {
+              pending.add(MapEntry(doc.reference, current));
+            }
+          }
+          if (ride == null || ride['status'] != 'open') throw ApiException('Trajet indisponible');
+          if (ride['driverId'] == me ||
+              booking == null ||
+              booking['rideId'] != rideId ||
+              booking['passengerId'] != me ||
+              booking['driverId'] != ride['driverId'] ||
+              booking['status'] != 'accepted') {
+            throw ApiException('Réservation introuvable');
+          }
+          tx.update(rideRef, {'status': 'completed', 'completionBookingId': bookingId});
+          for (final entry in pending) {
+            tx.update(entry.key, {'status': 'declined'});
+            _notify(tx, entry.value['passengerId'], 'ride_ended', ride, rideId, {'name': myName});
+          }
+        });
       });
 
   // ---------- Notifications ----------

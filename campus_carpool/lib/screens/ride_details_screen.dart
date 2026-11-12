@@ -255,6 +255,32 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       ));
     }
     final b = d!.myBooking;
+    if (b?.status == 'accepted') {
+      return bar(Column(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () async {
+              if (await confirm('end_ride_q', 'end_ride_text')) {
+                act(() => Api.endRide(r.id, b!.id), 'toast_ride_ended');
+              }
+            },
+            icon: const Icon(Icons.flag_outlined),
+            label: Text(context.tr('end_ride')),
+          ),
+        ),
+        TextButton.icon(
+          style: danger,
+          onPressed: () async {
+            if (await confirm('cancel_booking_q', 'cancel_booking_text')) {
+              act(() => Api.cancelBooking(b!.id), 'toast_booking_cancelled');
+            }
+          },
+          icon: const Icon(Icons.close),
+          label: Text(context.tr('cancel_seat')),
+        ),
+      ]));
+    }
     if (b != null && b.isActive) {
       return bar(OutlinedButton.icon(
         style: danger,

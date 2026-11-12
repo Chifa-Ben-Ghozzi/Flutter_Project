@@ -61,7 +61,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(child: RideInfo(r)),
-              statusChip(context, r.isCancelled ? 'cancelled' : (r.isPast ? 'done' : 'open')),
+              statusChip(context, r.isCancelled ? 'cancelled' : (r.isCompleted || r.isPast ? 'done' : 'open')),
             ]),
             if (bookings.isNotEmpty) const Divider(),
             ...bookings.map((b) {

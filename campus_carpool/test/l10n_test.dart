@@ -35,7 +35,7 @@ void main() {
     // Clés construites dynamiquement
     used.addAll(['pending', 'accepted', 'declined', 'cancelled', 'open', 'done'].map((s) => 'status_$s'));
     used.addAll([for (var i = 1; i <= 5; i++) 'stars_$i']);
-    for (final t in ['booking_new', 'booking_accepted', 'booking_declined', 'booking_cancelled', 'ride_cancelled', 'review']) {
+    for (final t in ['booking_new', 'booking_accepted', 'booking_declined', 'booking_cancelled', 'ride_cancelled', 'ride_ended', 'review']) {
       used.addAll(['notif_${t}_title', 'notif_${t}_body']);
     }
     final missing = used.where((k) => !fr.containsKey(k)).toList()..sort();

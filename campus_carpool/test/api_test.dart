@@ -147,6 +147,46 @@ void main() {
       Api.uid = 'amira';
       expect((await Api.rideDetails('future')).ride.bookings, hasLength(2)); // le conducteur voit tout
     });
+
+    test('le passager accepté termine le trajet et peut noter le conducteur immédiatement', () async {
+      final bookingId = await acceptedBooking(db, 'future', 'demo');
+      await db.collection('bookings').add({
+        'rideId': 'future',
+        'passengerId': 'sarra',
+        'driverId': 'amira',
+        'status': 'pending',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      await Api.endRide('future', bookingId);
+
+      final ride = (await db.doc('rides/future').get()).data()!;
+      expect(ride['status'], 'completed');
+      expect(ride['completionBookingId'], bookingId);
+      final pending = (await db.collection('bookings').where('passengerId', isEqualTo: 'sarra').get()).docs.single;
+      expect(pending.data()['status'], 'declined');
+      expect((await notificationsOf(db, 'sarra')).single['type'], 'ride_ended');
+      final details = await Api.rideDetails('future');
+      expect(details.finished, isTrue);
+      expect(details.toRate.single.id, 'amira');
+
+      await Api.review('future', 'amira', 5, '');
+      expect((await Api.rideDetails('future')).toRate, isEmpty);
+    });
+
+    test('seul le passager accepté peut terminer le trajet', () async {
+      final bookingId = await acceptedBooking(db, 'future', 'demo');
+      Api.uid = 'sarra';
+      expect(
+        (await error(() => Api.endRide('future', bookingId)) as ApiException).message,
+        'Réservation introuvable',
+      );
+      Api.uid = 'amira';
+      expect(
+        (await error(() => Api.endRide('future', bookingId)) as ApiException).message,
+        'Réservation introuvable',
+      );
+    });
   });
 
   group('Avis', () {

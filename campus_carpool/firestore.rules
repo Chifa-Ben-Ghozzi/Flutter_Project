@@ -55,8 +55,8 @@ service cloud.firestore {
     match /rides/{rideId} {
       allow read: if signedIn();
       allow create: if signedIn() && validNewRide();
-      // Le conducteur change le statut ou les places ; un passager rend sa place en annulant.
-      allow update: if signedIn() && (driverRideEdit() || seatReturned(rideId));
+      // Le conducteur gère son trajet ; un passager accepté peut le terminer ou rendre sa place.
+      allow update: if signedIn() && (driverRideEdit() || seatReturned(rideId) || passengerEndsRide(rideId));
     }
 
     function validNewRide() {
@@ -71,15 +71,31 @@ service cloud.firestore {
     function driverRideEdit() {
       let d = request.resource.data;
       return resource.data.driverId == me()
+        && resource.data.status == 'open'
         && d.diff(resource.data).affectedKeys().hasOnly(['status', 'seatsLeft'])
         && d.status in ['open', 'cancelled']
         && d.seatsLeft >= 0 && d.seatsLeft <= d.seats;
     }
 
+    function passengerEndsRide(rideId) {
+      let d = request.resource.data;
+      let booking = /databases/$(database)/documents/bookings/$(d.get('completionBookingId', ''));
+      return resource.data.status == 'open'
+        && d.status == 'completed'
+        && d.completionBookingId is string
+        && d.diff(resource.data).affectedKeys().hasOnly(['status', 'completionBookingId'])
+        && exists(booking)
+        && get(booking).data.rideId == rideId
+        && get(booking).data.driverId == resource.data.driverId
+        && get(booking).data.passengerId == me()
+        && get(booking).data.status == 'accepted';
+    }
+
     function seatReturned(rideId) {
       let d = request.resource.data;
       let booking = /databases/$(database)/documents/bookings/$(d.lastBooking);
-      return d.diff(resource.data).affectedKeys().hasOnly(['seatsLeft', 'lastBooking'])
+      return resource.data.status == 'open'
+        && d.diff(resource.data).affectedKeys().hasOnly(['seatsLeft', 'lastBooking'])
         && d.seatsLeft == resource.data.seatsLeft + 1
         && get(booking).data.rideId == rideId
         && get(booking).data.passengerId == me()
@@ -93,7 +109,7 @@ service cloud.firestore {
       allow create: if signedIn() && validNewBooking();
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-        && (driverAnswers() || driverCancelsRide() || passengerCancels());
+        && (driverAnswers() || pendingDeclinedOnRideEnd() || driverCancelsRide() || passengerCancels());
     }
 
     function validNewBooking() {
@@ -106,9 +122,27 @@ service cloud.firestore {
     }
 
     function driverAnswers() {
+      let ride = get(/databases/$(database)/documents/rides/$(resource.data.rideId)).data;
       return resource.data.driverId == me()
         && resource.data.status == 'pending'
+        && ride.status == 'open'
         && request.resource.data.status in ['accepted', 'declined'];
+    }
+
+    function pendingDeclinedOnRideEnd() {
+      let ridePath = /databases/$(database)/documents/rides/$(resource.data.rideId);
+      let ride = get(ridePath).data;
+      let rideAfter = getAfter(ridePath).data;
+      let booking = /databases/$(database)/documents/bookings/$(rideAfter.get('completionBookingId', ''));
+      return resource.data.status == 'pending'
+        && request.resource.data.status == 'declined'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && ride.status == 'open'
+        && ride.driverId == resource.data.driverId
+        && rideAfter.status == 'completed'
+        && get(booking).data.driverId == resource.data.driverId
+        && get(booking).data.rideId == resource.data.rideId
+        && get(booking).data.status == 'accepted';
     }
 
     function driverCancelsRide() {
@@ -121,6 +155,7 @@ service cloud.firestore {
     function passengerCancels() {
       return resource.data.passengerId == me()
         && resource.data.status in ['pending', 'accepted']
+        && get(/databases/$(database)/documents/rides/$(resource.data.rideId)).data.status == 'open'
         && request.resource.data.status == 'cancelled';
     }
 
@@ -139,7 +174,7 @@ service cloud.firestore {
         && d.fromId == me() && d.toId != me()
         && d.stars is int && d.stars >= 1 && d.stars <= 5
         && d.comment is string && d.comment.size() <= 300
-        && ride.status != 'cancelled' && ride.dateTime < request.time
+        && ride.status != 'cancelled' && (ride.status == 'completed' || ride.dateTime < request.time)
         && b.rideId == d.rideId && b.status == 'accepted'
         && ((ride.driverId == me() && b.passengerId == d.toId)
             || (ride.driverId == d.toId && b.passengerId == me()));
@@ -153,7 +188,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['userId', 'type', 'rideId', 'data', 'read', 'pushed', 'createdAt'])
         && request.resource.data.userId != me()
         && request.resource.data.type in ['booking_new', 'booking_accepted', 'booking_declined',
-                                          'booking_cancelled', 'ride_cancelled', 'review']
+                                          'booking_cancelled', 'ride_cancelled', 'ride_ended', 'review']
         && request.resource.data.read == false
         && request.resource.data.pushed == false;
       allow update: if signedIn() && resource.data.userId == me()

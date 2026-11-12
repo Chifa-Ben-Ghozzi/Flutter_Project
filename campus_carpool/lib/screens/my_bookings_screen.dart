@@ -43,7 +43,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               Expanded(child: RideInfo(ride)),
               statusChip(context, b.status),
             ]),
-            if (b.status == 'accepted' && ride.isPast && !ride.isCancelled)
+            if (b.status == 'accepted' && (ride.isCompleted || ride.isPast) && !ride.isCancelled)
               Text('⭐ ${context.tr('tap_to_rate_driver')}', style: TextStyle(color: primary))
             else if (b.status == 'accepted')
               Text('📞 ${context.tr('tap_to_call_driver')}', style: TextStyle(color: primary)),
