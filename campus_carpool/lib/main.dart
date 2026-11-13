@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/settings_provider.dart';
 import 'routes.dart';
+import 'theme.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ride_details_screen.dart';
@@ -62,15 +63,6 @@ void _openRideFromNotification(String rideId) {
   if (ctx != null && ctx.read<AuthProvider>().loggedIn) openRide(ctx, rideId);
 }
 
-const _seed = Color(0xFF3F51B5);
-
-ThemeData _theme(Brightness b) => ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: _seed, brightness: b),
-      useMaterial3: true,
-      cardTheme: const CardThemeData(elevation: 1),
-      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
-    );
-
 class CarpoolApp extends StatelessWidget {
   final Future<void> Function()? init;
   const CarpoolApp({super.key, this.init});
@@ -85,8 +77,8 @@ class CarpoolApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       locale: Locale(l10n.lang),
       // Thème clair / sombre (choix dans Profil > Paramètres)
-      theme: _theme(Brightness.light),
-      darkTheme: _theme(Brightness.dark),
+      theme: AppTheme.of(Brightness.light),
+      darkTheme: AppTheme.of(Brightness.dark),
       themeMode: settings.themeMode,
       // Navigation par routes nommées (voir routes.dart)
       routes: AppRoutes.routes,

@@ -53,6 +53,7 @@ class _RideMapState extends State<RideMap> {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Column(children: [
         SizedBox(

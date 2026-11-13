@@ -69,7 +69,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Recherche : trajet d'Amira avec le statut de ma demande ; badge de la cloche : 1 non lue
-    expect(find.text('Ariana → Esprit Ghazela'), findsOneWidget);
+    expect(find.text('Ariana'), findsOneWidget);
+    expect(find.text('Esprit Ghazela'), findsOneWidget);
     expect(find.text('Acceptée'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
 
@@ -90,7 +91,7 @@ void main() {
     await tester.tap(find.text('Mes trajets'));
     await tester.pumpAndSettle();
     expect(find.text('Sarra'), findsOneWidget);
-    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Accepter'), findsOneWidget); // bouton libellé, plus une simple icône
 
     // Onglet "Réservations"
     await tester.tap(find.text('Réservations'));
@@ -106,6 +107,9 @@ void main() {
 
     // Thème sombre
     await tester.scrollUntilVisible(find.text('Sombre'), 300, scrollable: find.byType(Scrollable).first);
+    // Centre le réglage à l'écran (sinon il peut rester sous la barre du haut)
+    await Scrollable.ensureVisible(tester.element(find.text('Sombre')), alignment: 0.5);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sombre'));
     await tester.pumpAndSettle();
     expect(settings.themeMode, ThemeMode.dark);

@@ -29,38 +29,34 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   Widget card(Booking b) {
     final ride = b.ride!;
     final primary = Theme.of(context).colorScheme.primary;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          if (await openRide(context, ride.id)) load();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: RideInfo(ride)),
-              statusChip(context, b.status),
-            ]),
-            if (b.status == 'accepted' && (ride.isCompleted || ride.isPast) && !ride.isCancelled)
-              Text('⭐ ${context.tr('tap_to_rate_driver')}', style: TextStyle(color: primary))
-            else if (b.status == 'accepted')
-              Text('📞 ${context.tr('tap_to_call_driver')}', style: TextStyle(color: primary)),
-            if (b.isUpcoming)
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton.icon(
+    final accepted = b.status == 'accepted';
+    final rate = accepted && (ride.isCompleted || ride.isPast) && !ride.isCancelled;
+    return RideCard(
+      ride,
+      status: b.status,
+      onTap: () async {
+        if (await openRide(context, ride.id)) load();
+      },
+      footer: !accepted && !b.isUpcoming
+          ? null
+          : Row(children: [
+              if (rate)
+                Expanded(
+                    child: InfoLine(Icons.star_rounded, context.tr('tap_to_rate_driver'), color: Colors.amber.shade800))
+              else if (accepted)
+                Expanded(child: InfoLine(Icons.call_outlined, context.tr('tap_to_call_driver'), color: primary))
+              else
+                const Spacer(),
+              if (b.isUpcoming)
+                TextButton.icon(
+                  style: TextButton.styleFrom(foregroundColor: statusColor(context, 'declined')),
                   onPressed: () async {
                     if (await guard(context, () => BookingRepository.cancel(b.id))) load();
                   },
-                  icon: const Icon(Icons.close, color: Colors.red),
-                  label: Text(context.tr('cancel'), style: const TextStyle(color: Colors.red)),
+                  icon: const Icon(Icons.close),
+                  label: Text(context.tr('cancel')),
                 ),
-              ),
-          ]),
-        ),
-      ),
+            ]),
     );
   }
 
@@ -69,6 +65,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         child: items.isEmpty
             ? EmptyState(Icons.event_seat_outlined, context.tr(emptyKey))
             : ListView.builder(
+                padding: const EdgeInsets.only(top: 6, bottom: 100),
                 itemCount: items.length,
                 itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(items[i])),
               ),

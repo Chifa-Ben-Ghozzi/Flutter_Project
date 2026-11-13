@@ -168,6 +168,24 @@ const strings = <String, Map<String, String>>{
     'seats_left_of': '{left}/{total} places',
     'toast_request_sent': 'Demande envoyée au conducteur',
 
+    // ---- Design : dates lisibles, sections, filtres ----
+    'today': "Aujourd'hui",
+    'tomorrow': 'Demain',
+    'weekdays': 'lun.|mar.|mer.|jeu.|ven.|sam.|dim.',
+    'months': 'janv.|févr.|mars|avr.|mai|juin|juil.|août|sept.|oct.|nov.|déc.',
+    'search_title': 'Où allez-vous ?',
+    'search_subtitle': 'Trouvez un trajet avec d’autres étudiants',
+    'swap': 'Inverser départ et destination',
+    'any': 'Tous',
+    'max_price_value': '≤ {price} dt',
+    'min_seats_value': '{n}+ places',
+    'seats_short': '{n} pl. libres',
+    'per_seat': 'par place',
+    'section_route': 'Itinéraire',
+    'section_when': 'Quand ?',
+    'section_seats_price': 'Places et prix',
+    'driver_requests': 'Demandes',
+
     // ---- Publier ----
     'post_title': 'Publier un trajet',
     'post_subtitle': 'Proposez vos places libres aux étudiants',
@@ -394,6 +412,24 @@ const strings = <String, Map<String, String>>{
     'request_seat': 'Request a seat',
     'seats_left_of': '{left}/{total} seats',
     'toast_request_sent': 'Request sent to the driver',
+
+    // ---- Design: readable dates, sections, filters ----
+    'today': 'Today',
+    'tomorrow': 'Tomorrow',
+    'weekdays': 'Mon|Tue|Wed|Thu|Fri|Sat|Sun',
+    'months': 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec',
+    'search_title': 'Where are you going?',
+    'search_subtitle': 'Find a ride with other students',
+    'swap': 'Swap departure and destination',
+    'any': 'Any',
+    'max_price_value': '≤ {price} dt',
+    'min_seats_value': '{n}+ seats',
+    'seats_short': '{n} seats left',
+    'per_seat': 'per seat',
+    'section_route': 'Route',
+    'section_when': 'When?',
+    'section_seats_price': 'Seats and price',
+    'driver_requests': 'Requests',
 
     // ---- Post ----
     'post_title': 'Post a ride',

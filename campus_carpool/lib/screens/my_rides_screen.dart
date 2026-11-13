@@ -49,61 +49,51 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
   Widget card(Ride r) {
     final upcoming = r.isUpcoming;
     final bookings = r.bookings.where((b) => b.status != 'cancelled' || !upcoming).toList();
-    final primary = Theme.of(context).colorScheme.primary;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          if (await openRide(context, r.id)) load();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: RideInfo(r)),
-              statusChip(context, r.isCancelled ? 'cancelled' : (r.isCompleted || r.isPast ? 'done' : 'open')),
-            ]),
-            if (bookings.isNotEmpty) const Divider(),
-            ...bookings.map((b) {
-              final p = b.passenger ?? AppUser(id: b.passengerId, name: '?');
-              final pending = b.status == 'pending' && upcoming;
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: avatar(p, radius: 16),
-                title: Text(p.name),
-                subtitle: RatingLabel(p),
-                trailing: pending
-                    ? Row(mainAxisSize: MainAxisSize.min, children: [
-                        IconButton(
-                          tooltip: context.tr('accept'),
-                          icon: const Icon(Icons.check_circle, color: Colors.green),
-                          onPressed: () => act(() => BookingRepository.respond(b.id, true)),
-                        ),
-                        IconButton(
-                          tooltip: context.tr('decline'),
-                          icon: const Icon(Icons.cancel, color: Colors.red),
-                          onPressed: () => act(() => BookingRepository.respond(b.id, false)),
-                        ),
-                      ])
-                    : statusChip(context, b.status),
-              );
-            }),
-            if (upcoming)
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TextButton.icon(
-                  onPressed: () => confirmCancel(r),
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  label: Text(context.tr('cancel_ride'), style: const TextStyle(color: Colors.red)),
+    final status = r.isCancelled ? 'cancelled' : (r.isCompleted || r.isPast ? 'done' : 'open');
+    final canRate = !upcoming && !r.isCancelled && bookings.any((b) => b.status == 'accepted');
+    return RideCard(
+      r,
+      showDriver: false,
+      status: status,
+      onTap: () async {
+        if (await openRide(context, r.id)) load();
+      },
+      footer: bookings.isEmpty && !upcoming && !canRate
+          ? null
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (bookings.isNotEmpty) ...[
+                Text(
+                  context.tr('driver_requests').toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            if (!upcoming && !r.isCancelled && bookings.any((b) => b.status == 'accepted'))
-              Text('⭐ ${context.tr('tap_to_rate_passengers')}', style: TextStyle(color: primary)),
-          ]),
-        ),
-      ),
+                ...bookings.map((b) {
+                  final pending = b.status == 'pending' && upcoming;
+                  return PassengerRequest(
+                    b.passenger ?? AppUser(id: b.passengerId, name: '?'),
+                    b.status,
+                    onAccept: pending ? () => act(() => BookingRepository.respond(b.id, true)) : null,
+                    onDecline: pending ? () => act(() => BookingRepository.respond(b.id, false)) : null,
+                  );
+                }),
+              ],
+              if (canRate)
+                InfoLine(Icons.star_rounded, context.tr('tap_to_rate_passengers'), color: Colors.amber.shade800),
+              if (upcoming)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: statusColor(context, 'declined')),
+                    onPressed: () => confirmCancel(r),
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text(context.tr('cancel_ride')),
+                  ),
+                ),
+            ]),
     );
   }
 
@@ -112,6 +102,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
         child: items.isEmpty
             ? EmptyState(Icons.directions_car_outlined, context.tr(emptyKey))
             : ListView.builder(
+                padding: const EdgeInsets.only(top: 6, bottom: 100),
                 itemCount: items.length,
                 itemBuilder: (_, i) => FadeSlideIn(index: i, child: card(items[i])),
               ),

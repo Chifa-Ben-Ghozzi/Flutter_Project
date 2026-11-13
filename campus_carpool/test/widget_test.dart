@@ -37,6 +37,8 @@ void main() {
   group('Formulaire "Publier un trajet" (Form + validators)', () {
     testWidgets('formulaire vide : erreurs sous les champs', (tester) async {
       await tester.pumpWidget(testApp(const Scaffold(body: PostRideScreen())));
+      await tester.ensureVisible(find.text('Publier').last); // le bouton est sous les sections du formulaire
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Publier').last);
       await tester.pump();
 
@@ -52,6 +54,8 @@ void main() {
       await tester.enterText(fields.at(1), 'tunis'); // destination
       await tester.enterText(fields.at(4), '12'); // places
       await tester.enterText(fields.at(5), '-3'); // prix
+      await tester.ensureVisible(find.text('Publier').last); // le bouton est sous les sections du formulaire
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Publier').last);
       await tester.pump();
 
@@ -63,6 +67,8 @@ void main() {
     testWidgets('en anglais, les messages sont traduits', (tester) async {
       await tester.pumpWidget(testApp(const Scaffold(body: PostRideScreen()), lang: 'en'));
       expect(find.text('Post a ride'), findsOneWidget);
+      await tester.ensureVisible(find.text('Post').last); // le bouton est sous les sections du formulaire
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Post').last);
       await tester.pump();
       expect(find.text('Required field'), findsNWidgets(2));
@@ -97,7 +103,9 @@ void main() {
       await tester.pumpWidget(testApp(const RideDetailsScreen(rideId: 'future')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ariana → Esprit Ghazela'), findsOneWidget);
+      // Itinéraire dessiné en ligne de temps : départ et arrivée sur deux lignes
+      expect(find.text('Ariana'), findsOneWidget);
+      expect(find.text('Esprit Ghazela'), findsOneWidget);
       expect(find.text('Amira'), findsOneWidget);
       expect(find.text(' 4.5'), findsOneWidget); // note du conducteur
       expect(find.text('Appeler'), findsNothing); // pas encore accepté
