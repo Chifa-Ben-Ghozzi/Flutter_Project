@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../validators.dart';
 import '../widgets.dart';
+import '../repositories/ride_repository.dart';
 
 class PostRideScreen extends StatefulWidget {
   const PostRideScreen({super.key});
@@ -54,7 +54,7 @@ class _PostRideScreenState extends State<PostRideScreen> {
     if (!formKey.currentState!.validate()) return;
     final done = context.tr('toast_ride_posted');
     setState(() => busy = true);
-    final ok = await guard(context, () => Api.postRide({
+    final ok = await guard(context, () => RideRepository.publish({
           'from': from.text.trim(),
           'to': to.text.trim(),
           'date': fmtDate(date!),

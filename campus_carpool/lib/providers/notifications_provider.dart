@@ -4,10 +4,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import 'auth_provider.dart';
+import '../repositories/notification_repository.dart';
+import '../repositories/user_repository.dart';
+import '../services/firestore_service.dart';
 
 /// Notifications (Provider), en temps réel avec Firestore :
 /// - l'app écoute la collection `notifications` de l'utilisateur : le badge de la cloche
@@ -101,7 +103,7 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sub?.cancel();
     if (auth.loggedIn) {
       _firstSnapshot = true;
-      _sub = Api.myNotificationsQuery().snapshots(includeMetadataChanges: true).listen(_onSnapshot, onError: (_) {});
+      _sub = NotificationRepository.myQuery().snapshots(includeMetadataChanges: true).listen(_onSnapshot, onError: (_) {});
       _registerPushToken();
       auth.beforeLogout = _unregisterPushToken;
     } else {
@@ -110,7 +112,7 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _onSnapshot(QuerySnapshot<Map<String, dynamic>> snap) {
-    Api.network.set(!snap.metadata.isFromCache);
+    FirestoreService.network.set(!snap.metadata.isFromCache);
     _setUnread(snap.docs.where((d) => d.data()['read'] != true).length);
     // Les notifications déjà là au démarrage ne sont pas réaffichées
     if (_firstSnapshot) {
@@ -119,7 +121,7 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     final added = snap.docChanges.where((c) => c.type == DocumentChangeType.added && !c.doc.metadata.hasPendingWrites);
     for (final c in added) {
-      final n = Api.notificationFrom(c.doc);
+      final n = NotificationRepository.fromDoc(c.doc);
       if (n.type == 'review') auth.refresh(); // nouvelle note
       // En arrière-plan, c'est la notification push du serveur qui s'affiche (pas de doublon)
       if (_inForeground) _show(n);
@@ -137,14 +139,14 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refresh() async {
     if (!auth.loggedIn) return;
     try {
-      await Api.notifications(); // met à jour Api.network (en ligne / hors ligne)
+      await NotificationRepository.list(); // met à jour FirestoreService.network (en ligne / hors ligne)
     } catch (_) {}
   }
 
   Future<void> markAllRead() async {
     _setUnread(0);
     try {
-      await Api.markNotificationsRead();
+      await NotificationRepository.markAllRead();
     } catch (_) {}
   }
 
@@ -158,13 +160,13 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Jeton FCM classique : c'est la cible attendue par firebase-admin (push-server).
       // ignore: deprecated_member_use
       _token = await fm.getToken();
-      if (_token != null) await Api.setUserField('fcmTokens', FieldValue.arrayUnion([_token]));
-      await Api.setUserField('lang', l10n.lang);
+      if (_token != null) await UserRepository.setField('fcmTokens', FieldValue.arrayUnion([_token]));
+      await UserRepository.setField('lang', l10n.lang);
       _tokenSub?.cancel();
       // ignore: deprecated_member_use
       _tokenSub = fm.onTokenRefresh.listen((t) async {
         _token = t;
-        await Api.setUserField('fcmTokens', FieldValue.arrayUnion([t]));
+        await UserRepository.setField('fcmTokens', FieldValue.arrayUnion([t]));
       });
     } catch (e) {
       debugPrint('Push indisponible : $e');
@@ -174,7 +176,7 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// À la déconnexion : cet appareil ne reçoit plus les notifications de ce compte.
   Future<void> _unregisterPushToken() async {
     _tokenSub?.cancel();
-    if (_token != null) await Api.setUserField('fcmTokens', FieldValue.arrayRemove([_token]));
+    if (_token != null) await UserRepository.setField('fcmTokens', FieldValue.arrayRemove([_token]));
     _token = null;
   }
 
@@ -182,7 +184,7 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> syncLanguage() async {
     if (!auth.loggedIn) return;
     try {
-      await Api.setUserField('lang', l10n.lang);
+      await UserRepository.setField('lang', l10n.lang);
     } catch (_) {}
   }
 

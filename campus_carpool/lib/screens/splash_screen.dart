@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../l10n.dart';
 
-/// Shows an animated splash, runs [init] in parallel (e.g. Api.init),
+/// Shows an animated splash, runs [init] in parallel (e.g. AuthProvider.init),
 /// then fades into [next] (your current home widget).
 class SplashScreen extends StatefulWidget {
   final Widget next;

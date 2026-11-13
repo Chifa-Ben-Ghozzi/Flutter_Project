@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../providers/auth_provider.dart';
@@ -10,6 +9,8 @@ import '../providers/settings_provider.dart';
 import '../validators.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
+import '../repositories/booking_repository.dart';
+import '../repositories/ride_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -45,7 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> loadStats() async {
     try {
-      final s = ProfileStats.compute(await Api.myRides(), await Api.myBookings());
+      final s = ProfileStats.compute(await RideRepository.myRides(), await BookingRepository.myBookings());
       if (mounted) setState(() => stats = s);
     } catch (_) {
       // Pas de statistiques si le serveur est injoignable

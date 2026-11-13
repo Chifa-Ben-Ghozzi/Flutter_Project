@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
+import '../services/routing_service.dart';
 import '../widgets.dart';
 
 /// Carte OpenStreetMap du trajet : départ (vert), arrivée (rouge) et itinéraire routier.
@@ -33,16 +32,12 @@ class _RideMapState extends State<RideMap> {
 
   Future<void> loadRoute() async {
     try {
-      final url = Uri.parse('https://router.project-osrm.org/route/v1/driving/'
-          '${a.longitude},${a.latitude};${b.longitude},${b.latitude}?overview=full&geometries=geojson');
-      final r = await Api.client.get(url).timeout(const Duration(seconds: 8));
-      final route = (jsonDecode(r.body)['routes'] as List).first;
-      final coords = route['geometry']['coordinates'] as List;
+      final route = await RoutingService.drivingRoute((a.latitude, a.longitude), (b.latitude, b.longitude));
       if (!mounted) return;
       setState(() {
-        path = coords.map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble())).toList();
-        km = (route['distance'] as num) / 1000;
-        minutes = ((route['duration'] as num) / 60).round();
+        path = route.path.map((p) => LatLng(p.$1, p.$2)).toList();
+        km = route.km;
+        minutes = route.minutes;
       });
     } catch (_) {
       // Pas d'itinéraire : on garde la ligne droite

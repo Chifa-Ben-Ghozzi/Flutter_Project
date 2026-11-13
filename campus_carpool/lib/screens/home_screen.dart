@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../providers/notifications_provider.dart';
 import '../routes.dart';
@@ -10,6 +9,7 @@ import 'my_rides_screen.dart';
 import 'post_ride_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
+import '../services/network_status.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
