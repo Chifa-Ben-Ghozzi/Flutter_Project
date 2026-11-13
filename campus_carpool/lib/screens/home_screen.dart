@@ -105,10 +105,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       // Caché sur les formulaires (Publier, Profil) pour ne pas masquer leurs boutons
       floatingActionButton: index != 1 && index != 4
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
+              tooltip: context.tr('ai_help'),
               onPressed: openHelpChat,
-              icon: const Icon(Icons.auto_awesome),
-              label: Text(context.tr('ai_help')),
+              child: const Icon(Icons.auto_awesome),
             )
           : null,
       bottomNavigationBar: NavigationBar(

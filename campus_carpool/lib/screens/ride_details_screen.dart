@@ -77,15 +77,18 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
               ? const SkeletonList(count: 3)
               : d == null
                   ? Center(
-                      child: TextButton.icon(onPressed: load, icon: const Icon(Icons.refresh), label: Text(context.tr('retry'))),
+                      child: TextButton.icon(
+                          onPressed: load, icon: const Icon(Icons.refresh), label: Text(context.tr('retry'))),
                     )
                   : RefreshIndicator(
                       onRefresh: load,
-                      child: ListView(padding: const EdgeInsets.all(12), children: [
+                      child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
                         header(),
-                        if (d!.ride.hasCoords) RideMap(d!.ride),
-                        driverCard(),
+                        // Après le trajet, noter est l'action principale : juste sous l'en-tête
                         if (d!.toRate.isNotEmpty) rateCard(),
+                        if (d!.ride.hasCoords)
+                          Padding(padding: const EdgeInsets.only(bottom: 12), child: RideMap(d!.ride)),
+                        driverCard(),
                         passengersCard(),
                       ]),
                     ),
@@ -99,159 +102,164 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
 
   Widget header() {
     final r = d!.ride;
+    final scheme = Theme.of(context).colorScheme;
     final status = r.isCancelled ? 'cancelled' : (d!.finished ? 'done' : 'open');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-              child: Hero(
-                tag: 'ride-title-${r.id}',
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Text(r.route, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                ),
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(r.time, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1)),
+              const SizedBox(height: 6),
+              Text(
+                friendlyDate(context, r.dateTime),
+                style: TextStyle(color: scheme.onSurfaceVariant),
               ),
-            ),
-            statusChip(context, status),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            PricePill(r.price, large: true),
+            const SizedBox(height: 4),
+            Text(context.tr('per_seat'), style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
           ]),
-          const SizedBox(height: 12),
-          info(Icons.calendar_today, context.tr('date_at_time', {'date': r.date, 'time': r.time})),
-          info(Icons.payments_outlined, context.tr('price_per_seat', {'price': fmtPrice(r.price)})),
-          info(Icons.event_seat, context.tr('seats_free', {'left': r.seatsLeft, 'total': r.seats})),
         ]),
-      ),
+        const SizedBox(height: 20),
+        Hero(
+          tag: 'ride-title-${r.id}',
+          child: Material(type: MaterialType.transparency, child: RouteTimeline(r.from, r.to, fontSize: 18)),
+        ),
+        const SizedBox(height: 18),
+        const Divider(),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+              child: InfoLine(
+                  Icons.event_seat_outlined, context.tr('seats_free', {'left': r.seatsLeft, 'total': r.seats}))),
+          statusChip(context, status),
+        ]),
+      ]),
     );
   }
-
-  Widget info(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 10),
-          Flexible(child: Text(text)),
-        ]),
-      );
-
-  Widget sectionTitle(String key) => Text(
-        context.tr(key),
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
-      );
 
   Widget driverCard() {
     final driver = d!.driver;
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          sectionTitle('driver'),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: avatar(driver),
-            title: Text(d!.isDriver ? context.tr('name_you', {'name': driver.name}) : driver.name),
-            subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              RatingLabel(driver),
-              if (driver.hasCar) Text('🚗 ${driver.carModel} · ${driver.carPlate}'),
-            ]),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => showUserProfile(context, driver.id),
-          ),
-          if (d!.iAmAccepted && !d!.ride.isCancelled)
-            ContactButtons(driver,
-                message: context.tr('wa_to_driver', {'name': driver.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time}))
-          else if (!d!.isDriver && d!.myBooking?.status == 'pending')
-            Text(context.tr('call_after_accept'), style: TextStyle(color: muted)),
-        ]),
-      ),
+    return SectionCard(
+      title: context.tr('driver'),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => showUserProfile(context, driver.id),
+          child: Row(children: [
+            avatar(driver, radius: 26),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  d!.isDriver ? context.tr('name_you', {'name': driver.name}) : driver.name,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                RatingLabel(driver),
+                if (driver.hasCar) ...[
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.directions_car_outlined, size: 16, color: muted),
+                    const SizedBox(width: 6),
+                    Flexible(child: Text('${driver.carModel} · ${driver.carPlate}', style: TextStyle(color: muted))),
+                  ]),
+                ],
+              ]),
+            ),
+            Icon(Icons.chevron_right, color: muted),
+          ]),
+        ),
+        if (d!.iAmAccepted && !d!.ride.isCancelled) ...[
+          const SizedBox(height: 14),
+          ContactButtons(driver,
+              message: context.tr('wa_to_driver',
+                  {'name': driver.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time})),
+        ] else if (!d!.isDriver && d!.myBooking?.status == 'pending') ...[
+          const SizedBox(height: 12),
+          Text(context.tr('call_after_accept'), style: TextStyle(color: muted)),
+        ],
+      ]),
     );
   }
 
   Widget passengersCard() {
     final list = d!.ride.bookings.where((b) => b.status != 'cancelled' || !d!.isOpen).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          sectionTitle(d!.isDriver ? 'requests_and_passengers' : 'passengers'),
-          if (list.isEmpty)
-            Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(context.tr('no_passengers'))),
-          ...list.map(passengerTile),
-        ]),
-      ),
+    return SectionCard(
+      title: context.tr(d!.isDriver ? 'requests_and_passengers' : 'passengers'),
+      child: list.isEmpty
+          ? Text(context.tr('no_passengers'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+          : Column(children: [
+              for (final (i, b) in list.indexed) ...[
+                if (i > 0) const Divider(height: 16),
+                passengerTile(b),
+              ],
+            ]),
     );
   }
 
   Widget passengerTile(Booking b) {
     final p = b.passenger ?? AppUser(id: b.passengerId, name: '?');
     final pending = d!.isDriver && d!.isOpen && b.status == 'pending';
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: avatar(p, radius: 20),
-        title: Text(p.name),
-        subtitle: RatingLabel(p),
-        onTap: () => showUserProfile(context, p.id),
-        trailing: pending
-            ? Row(mainAxisSize: MainAxisSize.min, children: [
-                IconButton(
-                  tooltip: context.tr('accept'),
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: () => act(() => BookingRepository.respond(b.id, true), 'toast_accepted'),
-                ),
-                IconButton(
-                  tooltip: context.tr('decline'),
-                  icon: const Icon(Icons.cancel, color: Colors.red),
-                  onPressed: () => act(() => BookingRepository.respond(b.id, false), 'toast_declined'),
-                ),
-              ])
-            : statusChip(context, b.status),
-      ),
-      if (d!.isDriver && b.status == 'accepted' && !d!.ride.isCancelled)
-        Padding(
-          padding: const EdgeInsets.only(left: 56, bottom: 8),
-          child: ContactButtons(p,
-              message: context.tr('wa_to_passenger', {'name': p.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time})),
-        ),
-    ]);
+    return PassengerRequest(
+      p,
+      b.status,
+      onTap: () => showUserProfile(context, p.id),
+      onAccept: pending ? () => act(() => BookingRepository.respond(b.id, true), 'toast_accepted') : null,
+      onDecline: pending ? () => act(() => BookingRepository.respond(b.id, false), 'toast_declined') : null,
+      below: d!.isDriver && b.status == 'accepted' && !d!.ride.isCancelled
+          ? ContactButtons(p,
+              message: context.tr('wa_to_passenger',
+                  {'name': p.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time}))
+          : null,
+    );
   }
 
-  Widget rateCard() => Card(
-        color: Theme.of(context).colorScheme.tertiaryContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('⭐ ${context.tr('how_was_ride')}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            ...d!.toRate.map((u) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: avatar(u, radius: 20),
-                  title: Text(u.name),
-                  trailing: FilledButton(
-                    onPressed: () async {
-                      if (await rateDialog(context, d!.ride.id, u)) {
-                        changed = true;
-                        load();
-                      }
-                    },
-                    child: Text(context.tr('rate')),
-                  ),
-                )),
-          ]),
-        ),
+  Widget rateCard() => SectionCard(
+        title: context.tr('how_was_ride'),
+        color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+        child: Column(children: [
+          for (final u in d!.toRate)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                avatar(u, radius: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text(u.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                  onPressed: () async {
+                    if (await rateDialog(context, d!.ride.id, u)) {
+                      changed = true;
+                      load();
+                    }
+                  },
+                  icon: const Icon(Icons.star_rounded, size: 18),
+                  label: Text(context.tr('rate')),
+                ),
+              ]),
+            ),
+        ]),
       );
 
   Widget? actions() {
     final r = d!.ride;
     if (!d!.isOpen) return null;
-    Widget bar(Widget child) => SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 8), child: child));
+    Widget bar(Widget child) =>
+        SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 8), child: child));
     final danger = OutlinedButton.styleFrom(foregroundColor: Colors.red);
 
     if (d!.isDriver) {
       return bar(OutlinedButton.icon(
         style: danger,
         onPressed: () async {
-          if (await confirm('cancel_ride_q', 'cancel_ride_text')) act(() => RideRepository.cancel(r.id), 'toast_ride_cancelled');
+          if (await confirm('cancel_ride_q', 'cancel_ride_text')) {
+            act(() => RideRepository.cancel(r.id), 'toast_ride_cancelled');
+          }
         },
         icon: const Icon(Icons.delete_outline),
         label: Text(context.tr('cancel_ride')),
@@ -288,7 +296,9 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       return bar(OutlinedButton.icon(
         style: danger,
         onPressed: () async {
-          if (await confirm('cancel_booking_q', 'cancel_booking_text')) act(() => BookingRepository.cancel(b.id), 'toast_booking_cancelled');
+          if (await confirm('cancel_booking_q', 'cancel_booking_text')) {
+            act(() => BookingRepository.cancel(b.id), 'toast_booking_cancelled');
+          }
         },
         icon: const Icon(Icons.close),
         label: Text(context.tr(b.status == 'pending' ? 'cancel_request' : 'cancel_seat')),
@@ -321,7 +331,7 @@ Future<bool> rateDialog(BuildContext context, String rideId, AppUser user) async
             controller: comment,
             maxLength: 300,
             maxLines: 3,
-            decoration: InputDecoration(labelText: c.tr('comment_optional'), border: const OutlineInputBorder()),
+            decoration: InputDecoration(labelText: c.tr('comment_optional')),
           ),
         ]),
         actions: [
@@ -368,7 +378,9 @@ void showUserProfile(BuildContext context, String userId) {
             const Divider(height: 32),
             Text(c.tr('reviews_count', {'n': u.ratingCount}), style: const TextStyle(fontWeight: FontWeight.bold)),
             if (u.reviews.isEmpty)
-              Padding(padding: const EdgeInsets.only(top: 8), child: Text(c.tr('no_reviews'), style: TextStyle(color: muted))),
+              Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(c.tr('no_reviews'), style: TextStyle(color: muted))),
             ...u.reviews.map((r) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Row(children: [

@@ -69,11 +69,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final auth = context.read<AuthProvider>();
     final done = context.tr('toast_profile_saved');
     setState(() => saving = true);
-    final ok = await guard(context, () => auth.updateProfile({
-          'name': name.text.trim(),
-          'phone': phone.text.replaceAll(' ', ''),
-          'car': {'model': model.text.trim(), 'plate': plate.text.trim()},
-        }));
+    final ok = await guard(
+        context,
+        () => auth.updateProfile({
+              'name': name.text.trim(),
+              'phone': phone.text.replaceAll(' ', ''),
+              'car': {'model': model.text.trim(), 'plate': plate.text.trim()},
+            }));
     if (!mounted) return;
     setState(() => saving = false);
     if (ok) toast(context, done);
@@ -83,27 +85,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     if (user == null) return const SizedBox();
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
     return Form(
       key: formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(padding: const EdgeInsets.all(16), children: [
         Center(
           child: Stack(children: [
-            GestureDetector(onTap: pickPhoto, child: avatar(user, radius: 50)),
+            GestureDetector(
+              onTap: pickPhoto,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary]),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.surface),
+                  child: avatar(user, radius: 46),
+                ),
+              ),
+            ),
             Positioned(
-              right: 0,
-              bottom: 0,
+              right: 2,
+              bottom: 2,
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: Icon(Icons.camera_alt, size: 16, color: Theme.of(context).colorScheme.onPrimary),
+                backgroundColor: scheme.primary,
+                child: Icon(Icons.camera_alt, size: 16, color: scheme.onPrimary),
               ),
             ),
           ]),
         ),
-        const SizedBox(height: 8),
-        Center(child: Text(user.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+        const SizedBox(height: 12),
+        Center(child: Text(user.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
         Center(child: Text(user.email ?? '', style: TextStyle(color: muted))),
         Center(
           child: TextButton(
@@ -120,52 +137,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         const SizedBox(height: 20),
         sectionTitle('my_info'),
-        TextFormField(
-          controller: name,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: context.tr('name'), prefixIcon: const Icon(Icons.person), border: const OutlineInputBorder()),
-          validator: (v) => t(Validators.name(v)),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: phone,
-          keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(
-            labelText: context.tr('phone'),
-            helperText: context.tr('phone_helper'),
-            prefixIcon: const Icon(Icons.phone),
-            border: const OutlineInputBorder(),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              TextFormField(
+                controller: name,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(labelText: context.tr('name'), prefixIcon: const Icon(Icons.person)),
+                validator: (v) => t(Validators.name(v)),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: context.tr('phone'),
+                  helperText: context.tr('phone_helper'),
+                  prefixIcon: const Icon(Icons.phone),
+                ),
+                validator: (v) => t(Validators.phone(v)),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: model,
+                textInputAction: TextInputAction.next,
+                decoration:
+                    InputDecoration(labelText: context.tr('car_model'), prefixIcon: const Icon(Icons.directions_car)),
+                onChanged: (_) => formKey.currentState?.validate(), // re-vérifie la plaque
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: plate,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(labelText: context.tr('plate'), prefixIcon: const Icon(Icons.pin)),
+                validator: (v) => t(Validators.plate(v, model.text)),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: saving ? null : save,
+                icon: saving
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save),
+                label: Text(context.tr('save')),
+              ),
+            ]),
           ),
-          validator: (v) => t(Validators.phone(v)),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: model,
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: context.tr('car_model'), prefixIcon: const Icon(Icons.directions_car), border: const OutlineInputBorder()),
-          onChanged: (_) => formKey.currentState?.validate(), // re-vérifie la plaque
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: plate,
-          textCapitalization: TextCapitalization.characters,
-          decoration: InputDecoration(labelText: context.tr('plate'), prefixIcon: const Icon(Icons.pin), border: const OutlineInputBorder()),
-          validator: (v) => t(Validators.plate(v, model.text)),
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: saving ? null : save,
-          icon: saving
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.save),
-          label: Text(context.tr('save')),
         ),
         const SizedBox(height: 24),
         sectionTitle('settings'),
         settingsCard(),
         const SizedBox(height: 16),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: statusColor(context, 'declined')),
           onPressed: () => context.read<AuthProvider>().logout(),
           icon: const Icon(Icons.logout),
           label: Text(context.tr('logout')),
@@ -204,12 +230,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return FadeSlideIn(
           index: i,
           child: Container(
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)),
             padding: const EdgeInsets.all(8),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(icon, color: color),
               const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
               Text(context.tr(label), textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 11)),
             ]),
           ),
@@ -222,8 +248,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final settings = context.watch<SettingsProvider>();
     final l10n = context.watch<L10n>();
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Icon(Icons.dark_mode_outlined),
@@ -235,9 +262,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             child: SegmentedButton<ThemeMode>(
               segments: [
-                ButtonSegment(value: ThemeMode.light, icon: const Icon(Icons.light_mode), label: Text(context.tr('theme_light'))),
-                ButtonSegment(value: ThemeMode.dark, icon: const Icon(Icons.dark_mode), label: Text(context.tr('theme_dark'))),
-                ButtonSegment(value: ThemeMode.system, icon: const Icon(Icons.phone_android), label: Text(context.tr('theme_system'))),
+                ButtonSegment(
+                    value: ThemeMode.light, icon: const Icon(Icons.light_mode), label: Text(context.tr('theme_light'))),
+                ButtonSegment(
+                    value: ThemeMode.dark, icon: const Icon(Icons.dark_mode), label: Text(context.tr('theme_dark'))),
+                ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.phone_android),
+                    label: Text(context.tr('theme_system'))),
               ],
               selected: {settings.themeMode},
               onSelectionChanged: (s) => settings.setThemeMode(s.first),

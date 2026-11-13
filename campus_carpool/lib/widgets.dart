@@ -10,8 +10,9 @@ String two(int n) => n.toString().padLeft(2, '0');
 String fmtDate(DateTime d) => '${d.year}-${two(d.month)}-${two(d.day)}';
 String fmtPrice(double p) => p == p.roundToDouble() ? p.toInt().toString() : p.toStringAsFixed(1);
 
-void toast(BuildContext c, String m) =>
-    ScaffoldMessenger.of(c)..hideCurrentSnackBar()..showSnackBar(SnackBar(content: Text(m)));
+void toast(BuildContext c, String m) => ScaffoldMessenger.of(c)
+  ..hideCurrentSnackBar()
+  ..showSnackBar(SnackBar(content: Text(m)));
 
 /// Exécute un appel API en affichant l'erreur éventuelle (traduite). Retourne true si succès.
 Future<bool> guard(BuildContext c, Future<void> Function() f) async {
@@ -30,69 +31,286 @@ Future<bool> guard(BuildContext c, Future<void> Function() f) async {
   return false;
 }
 
+// ---------- Dates lisibles ----------
+
+/// "Aujourd'hui", "Demain", sinon "ven. 14 nov." (dans la langue choisie).
+String friendlyDate(BuildContext context, DateTime d) {
+  final today = DateUtils.dateOnly(DateTime.now());
+  final diff = DateUtils.dateOnly(d).difference(today).inDays;
+  if (diff == 0) return context.tr('today');
+  if (diff == 1) return context.tr('tomorrow');
+  final days = context.tr('weekdays').split('|');
+  final months = context.tr('months').split('|');
+  return '${days[d.weekday - 1]} ${d.day} ${months[d.month - 1]}';
+}
+
 // ---------- Statuts ----------
 
-const _statusColors = {
-  'pending': Colors.orange,
-  'accepted': Colors.green,
-  'declined': Colors.red,
-  'cancelled': Colors.grey,
-  'open': Colors.blue,
-  'done': Colors.blueGrey,
-};
+/// Couleur de chaque statut ; affichée en version douce (fond pâle, texte coloré).
+Color statusColor(BuildContext context, String s) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return switch (s) {
+    'pending' => dark ? Colors.orange.shade300 : Colors.orange.shade800,
+    'accepted' => dark ? Colors.green.shade300 : Colors.green.shade700,
+    'declined' => dark ? Colors.red.shade300 : Colors.red.shade700,
+    'open' => Theme.of(context).colorScheme.primary,
+    'done' => dark ? Colors.teal.shade200 : Colors.teal.shade700,
+    _ => Theme.of(context).colorScheme.onSurfaceVariant, // cancelled
+  };
+}
 
-Widget statusChip(BuildContext context, String s) => Chip(
-      label: Text(context.tr('status_$s'), style: const TextStyle(color: Colors.white, fontSize: 12)),
-      backgroundColor: _statusColors[s] ?? Colors.grey,
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
-    );
+Widget statusChip(BuildContext context, String s) {
+  final c = statusColor(context, s);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(color: c.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(20)),
+    child: Text(context.tr('status_$s'), style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w700)),
+  );
+}
 
-// ---------- Carte d'un trajet dans les listes ----------
+// ---------- Trajet : itinéraire, prix, carte ----------
 
-class RideInfo extends StatelessWidget {
-  final Ride ride;
-  const RideInfo(this.ride, {super.key});
+/// Itinéraire dessiné comme une ligne de temps : ○ départ, │, ● arrivée.
+class RouteTimeline extends StatelessWidget {
+  final String from;
+  final String to;
+  final double fontSize;
+  const RouteTimeline(this.from, this.to, {super.key, this.fontSize = 15});
+
   @override
   Widget build(BuildContext context) {
-    final d = ride.driver;
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Hero : le titre "vole" jusqu'à l'écran de détails
-      Hero(
-        tag: 'ride-title-${ride.id}',
-        child: Material(
-          type: MaterialType.transparency,
-          child: Text(ride.route, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        ),
-      ),
-      const SizedBox(height: 6),
-      Wrap(spacing: 14, runSpacing: 4, children: [
-        _iconText(Icons.calendar_today, ride.date, muted),
-        _iconText(Icons.access_time, ride.time, muted),
-        _iconText(Icons.payments_outlined, '${fmtPrice(ride.price)} dt', muted),
-        _iconText(Icons.event_seat, context.tr('seats_left_of', {'left': ride.seatsLeft, 'total': ride.seats}), muted),
-      ]),
-      if (d != null) ...[
-        const SizedBox(height: 6),
-        Row(children: [
-          Icon(Icons.person, size: 16, color: muted),
-          const SizedBox(width: 4),
-          Flexible(child: Text(d.name, overflow: TextOverflow.ellipsis)),
-          const SizedBox(width: 8),
-          RatingLabel(d),
+    final scheme = Theme.of(context).colorScheme;
+    final style = TextStyle(fontSize: fontSize, height: 1.3, fontWeight: FontWeight.w600, color: scheme.onSurface);
+    final line = fontSize * 1.3; // hauteur d'une ligne de texte
+    const dot = 10.0;
+    final gap = line * 0.7;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: EdgeInsets.only(top: (line - dot) / 2),
+        child: Column(children: [
+          Container(
+            width: dot,
+            height: dot,
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: scheme.primary, width: 2.5)),
+          ),
+          Container(width: 2, height: line + gap - dot, color: scheme.outlineVariant),
+          Container(width: dot, height: dot, decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary)),
         ]),
-        if (d.hasCar) _iconText(Icons.directions_car, '${d.carModel} · ${d.carPlate}', muted),
-      ],
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(from, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+          SizedBox(height: gap),
+          Text(to, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
     ]);
   }
 }
 
-Widget _iconText(IconData icon, String text, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 15, color: color),
+/// Prix mis en avant ("4 dt").
+class PricePill extends StatelessWidget {
+  final double price;
+  final bool large;
+  const PricePill(this.price, {super.key, this.large = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: large ? 14 : 10, vertical: large ? 8 : 5),
+      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
+      child: Text(
+        '${fmtPrice(price)} dt',
+        style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w800, fontSize: large ? 20 : 15),
+      ),
+    );
+  }
+}
+
+/// Carte d'un trajet dans les listes : heure et date à gauche, itinéraire au centre, prix à droite ;
+/// en bas le conducteur (ou les places) et un statut ; [footer] pour les actions propres à l'écran.
+class RideCard extends StatelessWidget {
+  final Ride ride;
+  final VoidCallback? onTap;
+  final bool showDriver;
+  final String? status;
+  final Widget? footer;
+
+  const RideCard(this.ride, {super.key, this.onTap, this.showDriver = true, this.status, this.footer});
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final d = ride.driver;
+    final seats = Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.event_seat_outlined, size: 16, color: muted),
       const SizedBox(width: 4),
-      Text(text),
+      Text(context.tr('seats_left_of', {'left': ride.seatsLeft, 'total': ride.seats}), style: TextStyle(color: muted)),
     ]);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(
+                width: 78,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(ride.time, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
+                  const SizedBox(height: 4),
+                  Text(friendlyDate(context, ride.dateTime), style: TextStyle(color: muted, fontSize: 12.5)),
+                ]),
+              ),
+              Expanded(
+                // Hero : l'itinéraire "vole" jusqu'à l'écran de détails
+                child: Hero(
+                  tag: 'ride-title-${ride.id}',
+                  child: Material(type: MaterialType.transparency, child: RouteTimeline(ride.from, ride.to)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              PricePill(ride.price),
+            ]),
+            const SizedBox(height: 14),
+            const Divider(),
+            const SizedBox(height: 10),
+            Row(children: [
+              if (showDriver && d != null) ...[
+                avatar(d, radius: 13),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(d.name,
+                      overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(width: 6),
+                RatingLabel(d),
+              ] else
+                seats,
+              const Spacer(),
+              if (status != null) statusChip(context, status!) else if (showDriver) seats,
+            ]),
+            if (footer != null) ...[const SizedBox(height: 12), footer!],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Une ligne d'information avec icône (dans les cartes de détail).
+class InfoLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? color;
+  const InfoLine(this.icon, this.text, {super.key, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Theme.of(context).colorScheme.primary;
+    return Row(children: [
+      Icon(icon, size: 18, color: c),
+      const SizedBox(width: 8),
+      Flexible(child: Text(text, style: TextStyle(color: color, fontWeight: color == null ? null : FontWeight.w600))),
+    ]);
+  }
+}
+
+/// Un passager d'un trajet : avatar, nom, note ; boutons Accepter / Refuser quand la demande est en attente.
+class PassengerRequest extends StatelessWidget {
+  final AppUser user;
+  final String status;
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
+  final VoidCallback? onTap;
+  final Widget? below;
+
+  const PassengerRequest(this.user, this.status, {super.key, this.onAccept, this.onDecline, this.onTap, this.below});
+
+  @override
+  Widget build(BuildContext context) {
+    final red = statusColor(context, 'declined');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Row(children: [
+            avatar(user, radius: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                RatingLabel(user),
+              ]),
+            ),
+            if (onAccept == null) statusChip(context, status),
+          ]),
+        ),
+        if (onAccept != null) ...[
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: red, minimumSize: const Size(0, 40)),
+                onPressed: onDecline,
+                icon: const Icon(Icons.close, size: 18),
+                label: Text(context.tr('decline')),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                onPressed: onAccept,
+                icon: const Icon(Icons.check, size: 18),
+                label: Text(context.tr('accept')),
+              ),
+            ),
+          ]),
+        ],
+        if (below != null) Padding(padding: const EdgeInsets.only(top: 8), child: below),
+      ]),
+    );
+  }
+}
+
+/// Carte de section avec un titre (écran de détails, profil…).
+class SectionCard extends StatelessWidget {
+  final String? title;
+  final Widget child;
+  final Color? color;
+  const SectionCard({super.key, this.title, required this.child, this.color});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        color: color,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (title != null) ...[
+              Text(
+                title!.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            child,
+          ]),
+        ),
+      );
+}
 
 // ---------- Notes ----------
 
@@ -187,7 +405,8 @@ class ContactButtons extends StatelessWidget {
         label: Text(context.tr('call')),
       ),
       FilledButton.tonalIcon(
-        onPressed: () => openUrl(context, Uri.parse('https://wa.me/${waNumber(phone)}?text=${Uri.encodeComponent(message)}')),
+        onPressed: () =>
+            openUrl(context, Uri.parse('https://wa.me/${waNumber(phone)}?text=${Uri.encodeComponent(message)}')),
         icon: const Icon(Icons.chat),
         label: const Text('WhatsApp'),
         style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white),
