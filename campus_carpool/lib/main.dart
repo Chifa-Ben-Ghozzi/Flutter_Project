@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'api.dart';
 import 'firebase_options.dart';
 import 'l10n.dart';
 import 'providers/auth_provider.dart';
@@ -13,6 +12,7 @@ import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ride_details_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/firestore_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -38,7 +38,7 @@ void main() async {
       ChangeNotifierProvider.value(value: settings),
       ChangeNotifierProvider.value(value: auth),
       ChangeNotifierProvider.value(value: notifs),
-      ChangeNotifierProvider.value(value: Api.network),
+      ChangeNotifierProvider.value(value: FirestoreService.network),
     ],
     // L10nScope : context.tr('clé') partout, y compris dans les dialogues
     child: L10nScope(l10n: l10n, child: CarpoolApp(init: () => _init(auth, notifs))),

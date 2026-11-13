@@ -1,4 +1,3 @@
-import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/l10n.dart';
 import 'package:campus_carpool/models.dart';
 import 'package:campus_carpool/providers/auth_provider.dart';
@@ -13,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_data.dart';
+import 'package:campus_carpool/services/firestore_service.dart';
 
 /// Parcours complet de l'application connectée, sur une base Firestore en mémoire :
 /// tous les onglets, les notifications en temps réel, le thème sombre et le changement de langue.
@@ -50,7 +50,7 @@ void main() {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: notifications),
-        ChangeNotifierProvider.value(value: Api.network),
+        ChangeNotifierProvider.value(value: FirestoreService.network),
       ],
       child: L10nScope(
         l10n: l10n,

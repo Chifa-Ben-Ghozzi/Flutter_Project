@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
+import '../repositories/booking_repository.dart';
+import '../repositories/ride_repository.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -44,7 +45,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (price.text.trim().isNotEmpty) 'maxPrice': price.text.trim(),
       if (seats.text.trim().isNotEmpty) 'minSeats': seats.text.trim(),
     };
-    await guard(context, () async => rides = await Api.searchRides(q));
+    await guard(context, () async => rides = await RideRepository.search(q));
     if (mounted) setState(() => loading = false);
   }
 
@@ -60,7 +61,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> book(Ride r) async {
     final msg = context.tr('toast_request_sent');
-    if (await guard(context, () => Api.book(r.id))) {
+    if (await guard(context, () => BookingRepository.request(r.id))) {
       if (mounted) toast(context, msg);
       load();
     }

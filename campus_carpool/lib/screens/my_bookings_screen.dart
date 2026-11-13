@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
+import '../repositories/booking_repository.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -22,7 +22,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> load() async {
-    await guard(context, () async => bookings = await Api.myBookings());
+    await guard(context, () async => bookings = await BookingRepository.myBookings());
     if (mounted) setState(() => loading = false);
   }
 
@@ -52,7 +52,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 alignment: AlignmentDirectional.centerEnd,
                 child: TextButton.icon(
                   onPressed: () async {
-                    if (await guard(context, () => Api.cancelBooking(b.id))) load();
+                    if (await guard(context, () => BookingRepository.cancel(b.id))) load();
                   },
                   icon: const Icon(Icons.close, color: Colors.red),
                   label: Text(context.tr('cancel'), style: const TextStyle(color: Colors.red)),

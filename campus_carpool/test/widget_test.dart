@@ -1,4 +1,3 @@
-import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/routes.dart';
 import 'package:campus_carpool/screens/search_screen.dart';
 import 'package:campus_carpool/screens/auth_screen.dart';
@@ -11,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_data.dart';
 import 'helpers.dart';
+import 'package:campus_carpool/services/firestore_service.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -90,7 +90,7 @@ void main() {
     late FakeFirebaseFirestore db;
     setUp(() async {
       db = await fakeDb();
-      Api.uid = 'demo';
+      FirestoreService.uid = 'demo';
     });
 
     testWidgets("affiche le trajet, réserve une place, puis propose d'annuler", (tester) async {
@@ -152,7 +152,7 @@ void main() {
   group('Recherche', () {
     setUp(() async {
       await fakeDb();
-      Api.uid = 'demo';
+      FirestoreService.uid = 'demo';
     });
 
     testWidgets('affiche le nombre de trajets trouvés', (tester) async {

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../providers/auth_provider.dart';
 import '../routes.dart';
 import '../widgets.dart';
 import '../widgets/ride_map.dart';
+import '../repositories/booking_repository.dart';
+import '../repositories/review_repository.dart';
+import '../repositories/ride_repository.dart';
+import '../repositories/user_repository.dart';
 
 /// Ouvre l'écran de détails (route nommée '/ride' avec l'id du trajet en argument).
 /// Renvoie true si quelque chose a changé, pour rafraîchir la liste appelante.
@@ -32,7 +35,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
   }
 
   Future<void> load() async {
-    await guard(context, () async => d = await Api.rideDetails(widget.rideId));
+    await guard(context, () async => d = await RideRepository.details(widget.rideId));
     if (mounted) setState(() => loading = false);
   }
 
@@ -195,12 +198,12 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
                 IconButton(
                   tooltip: context.tr('accept'),
                   icon: const Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: () => act(() => Api.respond(b.id, true), 'toast_accepted'),
+                  onPressed: () => act(() => BookingRepository.respond(b.id, true), 'toast_accepted'),
                 ),
                 IconButton(
                   tooltip: context.tr('decline'),
                   icon: const Icon(Icons.cancel, color: Colors.red),
-                  onPressed: () => act(() => Api.respond(b.id, false), 'toast_declined'),
+                  onPressed: () => act(() => BookingRepository.respond(b.id, false), 'toast_declined'),
                 ),
               ])
             : statusChip(context, b.status),
@@ -248,7 +251,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       return bar(OutlinedButton.icon(
         style: danger,
         onPressed: () async {
-          if (await confirm('cancel_ride_q', 'cancel_ride_text')) act(() => Api.cancelRide(r.id), 'toast_ride_cancelled');
+          if (await confirm('cancel_ride_q', 'cancel_ride_text')) act(() => RideRepository.cancel(r.id), 'toast_ride_cancelled');
         },
         icon: const Icon(Icons.delete_outline),
         label: Text(context.tr('cancel_ride')),
@@ -262,7 +265,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
           child: FilledButton.icon(
             onPressed: () async {
               if (await confirm('end_ride_q', 'end_ride_text')) {
-                act(() => Api.endRide(r.id, b!.id), 'toast_ride_ended');
+                act(() => RideRepository.end(r.id, b!.id), 'toast_ride_ended');
               }
             },
             icon: const Icon(Icons.flag_outlined),
@@ -273,7 +276,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
           style: danger,
           onPressed: () async {
             if (await confirm('cancel_booking_q', 'cancel_booking_text')) {
-              act(() => Api.cancelBooking(b!.id), 'toast_booking_cancelled');
+              act(() => BookingRepository.cancel(b!.id), 'toast_booking_cancelled');
             }
           },
           icon: const Icon(Icons.close),
@@ -285,7 +288,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       return bar(OutlinedButton.icon(
         style: danger,
         onPressed: () async {
-          if (await confirm('cancel_booking_q', 'cancel_booking_text')) act(() => Api.cancelBooking(b.id), 'toast_booking_cancelled');
+          if (await confirm('cancel_booking_q', 'cancel_booking_text')) act(() => BookingRepository.cancel(b.id), 'toast_booking_cancelled');
         },
         icon: const Icon(Icons.close),
         label: Text(context.tr(b.status == 'pending' ? 'cancel_request' : 'cancel_seat')),
@@ -293,7 +296,7 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
     }
     if (r.seatsLeft < 1) return bar(FilledButton(onPressed: null, child: Text(context.tr('full'))));
     return bar(FilledButton.icon(
-      onPressed: () => act(() => Api.book(r.id), 'toast_request_sent'),
+      onPressed: () => act(() => BookingRepository.request(r.id), 'toast_request_sent'),
       icon: const Icon(Icons.event_seat),
       label: Text(context.tr('request_seat_price', {'price': fmtPrice(r.price)})),
     ));
@@ -330,7 +333,7 @@ Future<bool> rateDialog(BuildContext context, String rideId, AppUser user) async
   );
   if (send != true || !context.mounted) return false;
   final thanks = context.tr('toast_thanks_review');
-  final ok = await guard(context, () => Api.review(rideId, user.id, stars, comment.text.trim()));
+  final ok = await guard(context, () => ReviewRepository.add(rideId, user.id, stars, comment.text.trim()));
   if (ok && context.mounted) toast(context, thanks);
   return ok;
 }
@@ -346,7 +349,7 @@ void showUserProfile(BuildContext context, String userId) {
     builder: (_) => FractionallySizedBox(
       heightFactor: 0.75,
       child: FutureBuilder<AppUser>(
-        future: Api.publicUser(userId),
+        future: UserRepository.publicUser(userId),
         builder: (c, snap) {
           if (snap.hasError) return Center(child: Text(c.tr('err_server')));
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());

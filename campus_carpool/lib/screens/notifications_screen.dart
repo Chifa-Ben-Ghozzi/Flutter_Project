@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../providers/notifications_provider.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
+import '../repositories/notification_repository.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -27,7 +27,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> load() async {
     List<AppNotification> fresh = [];
-    final ok = await guard(context, () async => fresh = await Api.notifications());
+    final ok = await guard(context, () async => fresh = await NotificationRepository.list());
     if (!mounted) return;
     // Vide la liste animée puis insère les éléments avec un léger décalage
     for (var i = items.length - 1; i >= 0; i--) {

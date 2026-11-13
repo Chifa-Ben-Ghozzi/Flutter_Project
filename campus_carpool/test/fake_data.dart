@@ -1,8 +1,9 @@
-import 'package:campus_carpool/api.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:campus_carpool/services/firestore_service.dart';
+import 'package:campus_carpool/services/http_service.dart';
 
 String day(int offset) {
   final d = DateTime.now().add(Duration(days: offset));
@@ -13,8 +14,8 @@ String day(int offset) {
 /// Api utilise cette base ; le géocodage renvoie "aucun résultat" (pas de réseau dans les tests).
 Future<FakeFirebaseFirestore> fakeDb() async {
   final db = FakeFirebaseFirestore();
-  Api.db = db;
-  Api.client = MockClient((_) async => http.Response('[]', 200));
+  FirestoreService.db = db;
+  HttpService.client = MockClient((_) async => http.Response('[]', 200));
 
   Future<void> user(String id, String name, {String phone = '', String car = '', num sum = 0, int count = 0}) =>
       db.doc('users/$id').set({

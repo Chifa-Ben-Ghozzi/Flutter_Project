@@ -1,10 +1,10 @@
-import 'package:campus_carpool/api.dart';
 import 'package:campus_carpool/l10n.dart';
 import 'package:campus_carpool/providers/auth_provider.dart';
 import 'package:campus_carpool/providers/settings_provider.dart';
 import 'package:campus_carpool/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:campus_carpool/services/firestore_service.dart';
 
 /// Monte un écran avec les mêmes Providers / routes que l'application.
 Widget testApp(Widget home, {String lang = 'fr', GlobalKey<NavigatorState>? navigatorKey}) {
@@ -14,7 +14,7 @@ Widget testApp(Widget home, {String lang = 'fr', GlobalKey<NavigatorState>? navi
       ChangeNotifierProvider.value(value: l10n),
       ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ChangeNotifierProvider.value(value: Api.network),
+      ChangeNotifierProvider.value(value: FirestoreService.network),
     ],
     child: L10nScope(
       l10n: l10n,

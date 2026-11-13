@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../api.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
+import '../repositories/booking_repository.dart';
+import '../repositories/ride_repository.dart';
 
 class MyRidesScreen extends StatefulWidget {
   const MyRidesScreen({super.key});
@@ -22,7 +23,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
   }
 
   Future<void> load() async {
-    await guard(context, () async => rides = await Api.myRides());
+    await guard(context, () async => rides = await RideRepository.myRides());
     if (mounted) setState(() => loading = false);
   }
 
@@ -42,7 +43,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
         ],
       ),
     );
-    if (ok == true) act(() => Api.cancelRide(r.id));
+    if (ok == true) act(() => RideRepository.cancel(r.id));
   }
 
   Widget card(Ride r) {
@@ -78,12 +79,12 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
                         IconButton(
                           tooltip: context.tr('accept'),
                           icon: const Icon(Icons.check_circle, color: Colors.green),
-                          onPressed: () => act(() => Api.respond(b.id, true)),
+                          onPressed: () => act(() => BookingRepository.respond(b.id, true)),
                         ),
                         IconButton(
                           tooltip: context.tr('decline'),
                           icon: const Icon(Icons.cancel, color: Colors.red),
-                          onPressed: () => act(() => Api.respond(b.id, false)),
+                          onPressed: () => act(() => BookingRepository.respond(b.id, false)),
                         ),
                       ])
                     : statusChip(context, b.status),
