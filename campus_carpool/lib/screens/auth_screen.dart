@@ -6,9 +6,10 @@ import 'package:provider/provider.dart';
 import '../l10n.dart';
 import '../providers/auth_provider.dart';
 import '../services/exceptions.dart';
+import '../theme.dart';
 
-const _indigo = Color(0xFF3F51B5);
-const _deep = Color(0xFF1A237E);
+const _indigo = AppTheme.seed;
+const _deep = AppTheme.violet;
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -185,7 +186,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     // Écran dessiné à la main sur fond indigo : il reste en thème clair même en mode sombre
     return Theme(
-      data: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: _indigo), useMaterial3: true),
+      data: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: _indigo), useMaterial3: true, fontFamily: AppTheme.font),
       child: Scaffold(
       resizeToAvoidBottomInset: true,
       body: Stack(

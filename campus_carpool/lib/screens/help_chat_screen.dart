@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n.dart';
+import '../theme.dart';
 
 class _ChatMessage {
   const _ChatMessage({
@@ -212,7 +213,7 @@ class _HelpChatScreenState extends State<HelpChatScreen> {
       padding: const EdgeInsets.fromLTRB(20, 18, 12, 18),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF3347B0), Color(0xFF6854D9)],
+          colors: [AppTheme.seed, AppTheme.violet],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),

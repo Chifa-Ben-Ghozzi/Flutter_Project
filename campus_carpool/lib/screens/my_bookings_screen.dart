@@ -87,7 +87,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     return DefaultTabController(
       length: 2,
       child: Column(children: [
-        TabBar(tabs: [
+        SegmentedTabBar(tabs: [
           Tab(text: '${context.tr('upcoming')} (${upcoming.length})'),
           Tab(text: context.tr('history')),
         ]),

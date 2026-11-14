@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../l10n.dart';
+import 'package:provider/provider.dart';
 import '../models.dart';
+import '../providers/auth_provider.dart';
+import '../theme.dart';
 import '../repositories/booking_repository.dart';
 import '../repositories/ride_repository.dart';
 import '../widgets.dart';
@@ -77,27 +80,43 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final name = context.watch<AuthProvider>().user?.name.trim() ?? '';
+    final firstName = name.split(' ').first;
     return RefreshIndicator(
       onRefresh: load,
       child: ListView(padding: const EdgeInsets.only(bottom: 100), children: [
+        // En-tête au dégradé de la marque : salutation, titre, recherche et bouton
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(context.tr('search_title'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(context.tr('search_subtitle'), style: TextStyle(color: muted)),
-          ]),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: GradientPanel(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (firstName.isNotEmpty)
+                Text(context.tr('hello_name', {'name': firstName}),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(context.tr('search_title'),
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 27, fontWeight: FontWeight.w800, letterSpacing: -0.6)),
+              const SizedBox(height: 2),
+              Text(context.tr('search_subtitle'), style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+              const SizedBox(height: 16),
+              searchCard(),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppTheme.seed),
+                  onPressed: load,
+                  icon: const Icon(Icons.search_rounded),
+                  label: Text(context.tr('search_btn')),
+                ),
+              ),
+            ]),
+          ),
         ),
         const SizedBox(height: 16),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: searchCard()),
-        const SizedBox(height: 12),
         filters(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child:
-              FilledButton.icon(onPressed: load, icon: const Icon(Icons.search), label: Text(context.tr('search_btn'))),
-        ),
         AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: results()),
       ]),
     );
@@ -114,10 +133,10 @@ class _SearchScreenState extends State<SearchScreen> {
           focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         );
-    return Card(
-      margin: EdgeInsets.zero,
+    return Container(
+      decoration: BoxDecoration(color: AppTheme.card(scheme), borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+        padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
         child: Row(children: [
           Column(children: [
             Container(
@@ -126,7 +145,7 @@ class _SearchScreenState extends State<SearchScreen> {
               decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: scheme.primary, width: 2.5)),
             ),
             Container(width: 2, height: 34, color: scheme.outlineVariant),
-            Icon(Icons.location_on, size: 18, color: scheme.primary),
+            Icon(Icons.location_on_rounded, size: 18, color: AppTheme.violet),
           ]),
           const SizedBox(width: 12),
           Expanded(
@@ -146,7 +165,8 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ]),
           ),
-          IconButton(tooltip: context.tr('swap'), onPressed: swap, icon: const Icon(Icons.swap_vert)),
+          IconButton.filledTonal(
+              tooltip: context.tr('swap'), onPressed: swap, icon: const Icon(Icons.swap_vert_rounded)),
         ]),
       ),
     );
@@ -222,12 +242,9 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget results() {
     if (loading) return const SizedBox(key: ValueKey('loading'), height: 320, child: SkeletonList(count: 2));
     return Column(key: const ValueKey('results'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-        child: Text(
-          context.tr(rides.length == 1 ? 'offer_count_one' : 'offer_count_other', {'count': rides.length}),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
+      SectionHeader(
+        context.tr(rides.length == 1 ? 'offer_count_one' : 'offer_count_other', {'count': rides.length}),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       ),
       // Alerte : être prévenu des prochains trajets de cette recherche
       if (from.text.trim().isNotEmpty || dest.text.trim().isNotEmpty)
