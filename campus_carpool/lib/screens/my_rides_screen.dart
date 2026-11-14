@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../widgets.dart';
+import 'chat_screen.dart';
 import 'ride_details_screen.dart';
 import '../repositories/booking_repository.dart';
 import '../repositories/ride_repository.dart';
@@ -32,18 +33,7 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
   }
 
   Future<void> confirmCancel(Ride r) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(c.tr('cancel_ride_q')),
-        content: Text(c.tr('cancel_ride_text')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(c.tr('no'))),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(c.tr('yes'))),
-        ],
-      ),
-    );
-    if (ok == true) act(() => RideRepository.cancel(r.id));
+    if (await cancelRideFlow(context, r)) load();
   }
 
   Widget card(Ride r) {
@@ -78,6 +68,16 @@ class _MyRidesScreenState extends State<MyRidesScreen> {
                     b.status,
                     onAccept: pending ? () => act(() => BookingRepository.respond(b.id, true)) : null,
                     onDecline: pending ? () => act(() => BookingRepository.respond(b.id, false)) : null,
+                    below: upcoming && b.isActive
+                        ? Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: TextButton.icon(
+                              onPressed: () => openChat(context, b.id),
+                              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                              label: Text(context.tr('msg_send_message')),
+                            ),
+                          )
+                        : null,
                   );
                 }),
               ],

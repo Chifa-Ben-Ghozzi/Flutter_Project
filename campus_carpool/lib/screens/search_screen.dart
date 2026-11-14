@@ -4,6 +4,7 @@ import '../models.dart';
 import '../repositories/booking_repository.dart';
 import '../repositories/ride_repository.dart';
 import '../widgets.dart';
+import 'alerts_screen.dart';
 import 'ride_details_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -228,6 +229,17 @@ class _SearchScreenState extends State<SearchScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
+      // Alerte : être prévenu des prochains trajets de cette recherche
+      if (from.text.trim().isNotEmpty || dest.text.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => showAlertForm(context, from: from.text, to: dest.text, maxPrice: maxPrice),
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: Text(context.tr('alert_create_from_search')),
+          ),
+        ),
       if (rides.isEmpty)
         SizedBox(height: 280, child: EmptyState(Icons.search_off, context.tr('no_rides_found')))
       else

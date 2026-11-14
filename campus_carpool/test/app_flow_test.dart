@@ -1,6 +1,7 @@
 import 'package:campus_carpool/l10n.dart';
 import 'package:campus_carpool/models.dart';
 import 'package:campus_carpool/providers/auth_provider.dart';
+import 'package:campus_carpool/providers/chat_provider.dart';
 import 'package:campus_carpool/providers/notifications_provider.dart';
 import 'package:campus_carpool/providers/settings_provider.dart';
 import 'package:campus_carpool/routes.dart';
@@ -41,6 +42,7 @@ void main() {
     final auth = AuthProvider();
     final notifications = NotificationsProvider(auth, l10n, enablePush: false);
     await notifications.init();
+    final chat = ChatProvider(auth)..init();
     auth.debugSignIn(const AppUser(
         id: 'demo', name: 'Demo', email: 'demo@esprit.univ.tn', phone: '22111222', carModel: 'Clio', carPlate: '215 TU 4521'));
 
@@ -50,6 +52,7 @@ void main() {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: notifications),
+        ChangeNotifierProvider.value(value: chat),
         ChangeNotifierProvider.value(value: FirestoreService.network),
       ],
       child: L10nScope(
@@ -131,5 +134,6 @@ void main() {
     expect((await db.collection('notifications').where('read', isEqualTo: false).get()).docs, isEmpty);
 
     notifications.dispose();
+    chat.dispose();
   });
 }

@@ -6,6 +6,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
+import '../routes.dart';
 import '../validators.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
@@ -184,6 +185,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: Text(context.tr('save')),
               ),
             ]),
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Alertes de trajet : prévenu dès qu'un trajet correspondant est publié
+        Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            leading: const Icon(Icons.notifications_active_outlined),
+            title: Text(context.tr('alerts'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(context.tr('alerts_subtitle')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.alerts),
           ),
         ),
         const SizedBox(height: 24),

@@ -31,4 +31,8 @@ class Mappers {
 
   /// Date et heure de départ d'un trajet (champs "date" et "time").
   static DateTime rideDate(Map<String, dynamic> r) => DateTime.parse('${r['date']}T${r['time']}:00');
+
+  /// DateTime -> champ "date" d'un trajet (AAAA-MM-JJ).
+  static String day(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

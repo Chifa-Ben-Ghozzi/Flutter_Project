@@ -18,6 +18,7 @@ class Ride {
   final String? myBookingStatus; // dans la recherche : statut de ma demande
   final List<Booking> bookings; // dans "mes trajets" / détails
   final double? fromLat, fromLng, toLat, toLng;
+  final String? seriesId; // trajet régulier : même id pour toutes les dates de la série
 
   const Ride({
     required this.id,
@@ -37,6 +38,7 @@ class Ride {
     this.fromLng,
     this.toLat,
     this.toLng,
+    this.seriesId,
   });
 
   DateTime get dateTime => DateTime.parse('${date}T$time:00');
@@ -44,6 +46,7 @@ class Ride {
   bool get isCancelled => status == 'cancelled';
   bool get isCompleted => status == 'completed';
   bool get isUpcoming => status == 'open' && !isPast;
+  bool get isRecurring => seriesId != null;
   bool get hasCoords => fromLat != null && toLat != null;
   String get route => '$from → $to';
 
@@ -65,5 +68,6 @@ class Ride {
         fromLng: toDoubleOrNull(j['fromLng']),
         toLat: toDoubleOrNull(j['toLat']),
         toLng: toDoubleOrNull(j['toLng']),
+        seriesId: j['seriesId'],
       );
 }

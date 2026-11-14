@@ -388,17 +388,23 @@ Future<void> openUrl(BuildContext c, Uri uri) async {
 }
 
 /// Boutons Appeler / WhatsApp, ou un message si la personne n'a pas mis de numéro.
+/// [extra] (ex: bouton de la messagerie de l'app) est placé en premier.
 class ContactButtons extends StatelessWidget {
   final AppUser user;
   final String message;
-  const ContactButtons(this.user, {super.key, required this.message});
+  final Widget? extra;
+  const ContactButtons(this.user, {super.key, required this.message, this.extra});
   @override
   Widget build(BuildContext context) {
     if (!user.hasPhone) {
-      return Text(context.tr('no_phone'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant));
+      final text =
+          Text(context.tr('no_phone'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant));
+      if (extra == null) return text;
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [extra!, const SizedBox(height: 8), text]);
     }
     final phone = user.phone.trim();
     return Wrap(spacing: 8, runSpacing: 4, children: [
+      if (extra != null) extra!,
       FilledButton.tonalIcon(
         onPressed: () => openUrl(context, Uri(scheme: 'tel', path: phone)),
         icon: const Icon(Icons.call),

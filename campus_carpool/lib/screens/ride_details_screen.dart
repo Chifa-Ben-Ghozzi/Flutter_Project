@@ -10,6 +10,7 @@ import '../repositories/booking_repository.dart';
 import '../repositories/review_repository.dart';
 import '../repositories/ride_repository.dart';
 import '../repositories/user_repository.dart';
+import 'chat_screen.dart';
 
 /// Ouvre l'écran de détails (route nommée '/ride' avec l'id du trajet en argument).
 /// Renvoie true si quelque chose a changé, pour rafraîchir la liste appelante.
@@ -137,6 +138,10 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
                   Icons.event_seat_outlined, context.tr('seats_free', {'left': r.seatsLeft, 'total': r.seats}))),
           statusChip(context, status),
         ]),
+        if (r.isRecurring) ...[
+          const SizedBox(height: 10),
+          InfoLine(Icons.repeat, context.tr('recurring_ride')),
+        ],
       ]),
     );
   }
@@ -177,10 +182,14 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
         if (d!.iAmAccepted && !d!.ride.isCancelled) ...[
           const SizedBox(height: 14),
           ContactButtons(driver,
+              extra: MessageButton(d!.myBooking!.id),
               message: context.tr('wa_to_driver',
                   {'name': driver.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time})),
-        ] else if (!d!.isDriver && d!.myBooking?.status == 'pending') ...[
-          const SizedBox(height: 12),
+        ] else if (!d!.isDriver && d!.myBooking?.status == 'pending' && !d!.ride.isCancelled) ...[
+          // En attente : on peut déjà écrire au conducteur dans l'app (le téléphone reste masqué)
+          const SizedBox(height: 14),
+          MessageButton(d!.myBooking!.id),
+          const SizedBox(height: 10),
           Text(context.tr('call_after_accept'), style: TextStyle(color: muted)),
         ],
       ]),
@@ -211,11 +220,16 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       onTap: () => showUserProfile(context, p.id),
       onAccept: pending ? () => act(() => BookingRepository.respond(b.id, true), 'toast_accepted') : null,
       onDecline: pending ? () => act(() => BookingRepository.respond(b.id, false), 'toast_declined') : null,
-      below: d!.isDriver && b.status == 'accepted' && !d!.ride.isCancelled
-          ? ContactButtons(p,
-              message: context.tr('wa_to_passenger',
-                  {'name': p.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time}))
-          : null,
+      below: !d!.isDriver || d!.ride.isCancelled
+          ? null
+          : b.status == 'accepted'
+              ? ContactButtons(p,
+                  extra: MessageButton(b.id),
+                  message: context.tr('wa_to_passenger',
+                      {'name': p.name, 'route': d!.ride.route, 'date': d!.ride.date, 'time': d!.ride.time}))
+              : b.status == 'pending'
+                  ? MessageButton(b.id)
+                  : null,
     );
   }
 
@@ -257,8 +271,9 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       return bar(OutlinedButton.icon(
         style: danger,
         onPressed: () async {
-          if (await confirm('cancel_ride_q', 'cancel_ride_text')) {
-            act(() => RideRepository.cancel(r.id), 'toast_ride_cancelled');
+          if (await cancelRideFlow(context, r)) {
+            changed = true;
+            load();
           }
         },
         icon: const Icon(Icons.delete_outline),
@@ -311,6 +326,41 @@ class _RideDetailsScreenState extends State<RideDetailsScreen> {
       label: Text(context.tr('request_seat_price', {'price': fmtPrice(r.price)})),
     ));
   }
+}
+
+// ---------- Annuler un trajet (seul, ou toute la série d'un trajet régulier) ----------
+
+/// Demande confirmation puis annule ; renvoie true si quelque chose a été annulé.
+Future<bool> cancelRideFlow(BuildContext context, Ride r) async {
+  final choice = await showDialog<String>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(c.tr('cancel_ride_q')),
+      content: Text(c.tr(r.isRecurring ? 'cancel_series_text' : 'cancel_ride_text')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: Text(c.tr('no'))),
+        if (r.isRecurring) ...[
+          TextButton(onPressed: () => Navigator.pop(c, 'one'), child: Text(c.tr('cancel_this_only'))),
+          FilledButton(onPressed: () => Navigator.pop(c, 'all'), child: Text(c.tr('cancel_whole_series'))),
+        ] else
+          FilledButton(onPressed: () => Navigator.pop(c, 'one'), child: Text(c.tr('yes'))),
+      ],
+    ),
+  );
+  if (choice == null || !context.mounted) return false;
+  final l10n = context.l10n;
+  var n = 0;
+  final ok = await guard(context, () async {
+    if (choice == 'all') {
+      n = await RideRepository.cancelSeries(r.seriesId!);
+    } else {
+      await RideRepository.cancel(r.id);
+    }
+  });
+  if (ok && context.mounted) {
+    toast(context, choice == 'all' ? l10n.tr('toast_series_cancelled', {'n': n}) : l10n.tr('toast_ride_cancelled'));
+  }
+  return ok;
 }
 
 // ---------- Noter quelqu'un ----------

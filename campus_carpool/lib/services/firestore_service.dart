@@ -11,6 +11,8 @@ import 'network_status.dart';
 ///   bookings/{id}          demandes de place
 ///   reviews/{ride_from_to} avis (un seul par personne et par trajet)
 ///   notifications/{id}     notifications de chaque utilisateur
+///   messages/{id}          messagerie conducteur ↔ passager (une conversation par réservation)
+///   alerts/{id}            alertes de trajet (recherches enregistrées)
 class FirestoreService {
   /// Remplaçable dans les tests par FakeFirebaseFirestore.
   static FirebaseFirestore? _db;
@@ -35,6 +37,8 @@ class FirestoreService {
   static CollectionReference<Map<String, dynamic>> get bookings => db.collection('bookings');
   static CollectionReference<Map<String, dynamic>> get reviews => db.collection('reviews');
   static CollectionReference<Map<String, dynamic>> get notifications => db.collection('notifications');
+  static CollectionReference<Map<String, dynamic>> get messages => db.collection('messages');
+  static CollectionReference<Map<String, dynamic>> get alerts => db.collection('alerts');
 
   /// Exécute une opération Firestore en traduisant les erreurs techniques en erreurs de l'app.
   static Future<T> run<T>(Future<T> Function() f) async {
