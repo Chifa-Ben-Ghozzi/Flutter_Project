@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:campus_carpool/services/firestore_service.dart';
 
 /// Monte un écran avec les mêmes Providers / routes que l'application.
-Widget testApp(Widget home, {String lang = 'fr', GlobalKey<NavigatorState>? navigatorKey}) {
+Widget testApp(Widget home, {String lang = 'fr', GlobalKey<NavigatorState>? navigatorKey, ThemeData? theme}) {
   final l10n = L10n(lang);
   final auth = AuthProvider();
   return MultiProvider(
@@ -23,6 +23,7 @@ Widget testApp(Widget home, {String lang = 'fr', GlobalKey<NavigatorState>? navi
       l10n: l10n,
       child: MaterialApp(
         navigatorKey: navigatorKey,
+        theme: theme,
         routes: AppRoutes.routes,
         onGenerateRoute: AppRoutes.onGenerateRoute,
         onUnknownRoute: AppRoutes.onUnknownRoute,

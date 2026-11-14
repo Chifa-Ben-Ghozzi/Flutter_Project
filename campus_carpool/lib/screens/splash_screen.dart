@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../l10n.dart';
+import '../theme.dart';
 
 /// Shows an animated splash, runs [init] in parallel (e.g. AuthProvider.init),
 /// then fades into [next] (your current home widget).
@@ -59,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF3F51B5), Color(0xFF1A237E)],
+            colors: [AppTheme.seed, AppTheme.violet],
           ),
         ),
         child: AnimatedBuilder(
@@ -88,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       offset: Offset((1 - car.value) * -90, 0),
                       child: Opacity(
                         opacity: car.value.clamp(0.0, 1.0),
-                        child: const Icon(Icons.directions_car_rounded, size: 60, color: Color(0xFF3F51B5)),
+                        child: const Icon(Icons.directions_car_rounded, size: 60, color: AppTheme.seed),
                       ),
                     ),
                   ),

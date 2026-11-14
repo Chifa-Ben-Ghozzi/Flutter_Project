@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'l10n.dart';
 import 'models.dart';
 import 'services/exceptions.dart';
+import 'theme.dart';
 
 String two(int n) => n.toString().padLeft(2, '0');
 String fmtDate(DateTime d) => '${d.year}-${two(d.month)}-${two(d.day)}';
@@ -59,13 +60,116 @@ Color statusColor(BuildContext context, String s) {
   };
 }
 
+/// Pastille de statut : point coloré + libellé, sur un fond pâle de la même couleur.
 Widget statusChip(BuildContext context, String s) {
   final c = statusColor(context, s);
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: c.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(20)),
-    child: Text(context.tr('status_$s'), style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w700)),
+    padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
+    decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 7, height: 7, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Text(context.tr('status_$s'), style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w700)),
+    ]),
   );
+}
+
+// ---------- Marque ----------
+
+/// Logo de l'app : carré arrondi au dégradé de la marque, avec une voiture.
+class BrandMark extends StatelessWidget {
+  final double size;
+  const BrandMark({super.key, this.size = 34});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: AppTheme.brandGradient,
+          borderRadius: BorderRadius.circular(size * 0.32),
+          boxShadow: [
+            BoxShadow(color: AppTheme.seed.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Icon(Icons.directions_car_filled_rounded, color: Colors.white, size: size * 0.58),
+      );
+}
+
+/// Bloc au dégradé de la marque, aux coins très arrondis (en-têtes de la recherche et du profil).
+class GradientPanel extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  const GradientPanel({super.key, required this.child, this.padding = const EdgeInsets.all(20)});
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          gradient: AppTheme.brandGradient,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(color: AppTheme.seed.withValues(alpha: 0.28), blurRadius: 24, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Stack(children: [
+          // Cercles décoratifs translucides
+          Positioned(right: -40, top: -50, child: _bubble(160, 0.10)),
+          Positioned(right: 60, bottom: -70, child: _bubble(120, 0.07)),
+          Padding(padding: padding, child: child),
+        ]),
+      );
+
+  static Widget _bubble(double size, double alpha) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: alpha)),
+      );
+}
+
+/// Onglets dans un rail arrondi : l'onglet actif est une pilule de la couleur de la marque.
+class SegmentedTabBar extends StatelessWidget {
+  final List<Widget> tabs;
+  const SegmentedTabBar({super.key, required this.tabs});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.card(scheme),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      child: TabBar(
+        tabs: tabs,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(100)),
+        labelColor: scheme.onPrimary,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        dividerColor: Colors.transparent,
+        splashBorderRadius: BorderRadius.circular(100),
+      ),
+    );
+  }
+}
+
+/// Titre de section (en gras), avec une action facultative à droite.
+class SectionHeader extends StatelessWidget {
+  final String title;
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+  const SectionHeader(this.title, {super.key, this.trailing, this.padding = const EdgeInsets.fromLTRB(4, 0, 4, 10)});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: padding,
+        child: Row(children: [
+          Expanded(
+            child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+          ),
+          if (trailing != null) trailing!,
+        ]),
+      );
 }
 
 // ---------- Trajet : itinéraire, prix, carte ----------
@@ -118,12 +222,19 @@ class PricePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final color = scheme.primary;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: large ? 14 : 10, vertical: large ? 8 : 5),
-      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
-      child: Text(
-        '${fmtPrice(price)} dt',
-        style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w800, fontSize: large ? 20 : 15),
+      padding: EdgeInsets.symmetric(horizontal: large ? 14 : 11, vertical: large ? 8 : 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+      child: Text.rich(
+        TextSpan(children: [
+          TextSpan(
+            text: fmtPrice(price),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: large ? 22 : 17, letterSpacing: -0.3),
+          ),
+          TextSpan(text: ' dt', style: TextStyle(fontWeight: FontWeight.w700, fontSize: large ? 14 : 12)),
+        ]),
+        style: TextStyle(color: color),
       ),
     );
   }
@@ -142,58 +253,85 @@ class RideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
     final d = ride.driver;
-    final seats = Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.event_seat_outlined, size: 16, color: muted),
-      const SizedBox(width: 4),
-      Text(context.tr('seats_left_of', {'left': ride.seatsLeft, 'total': ride.seats}), style: TextStyle(color: muted)),
-    ]);
+    final full = ride.seatsLeft == 0;
+    final seats = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: (full ? scheme.error : scheme.onSurfaceVariant).withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.event_seat_rounded, size: 14, color: full ? scheme.error : muted),
+        const SizedBox(width: 4),
+        Text(
+          context.tr('seats_left_of', {'left': ride.seatsLeft, 'total': ride.seats}),
+          style: TextStyle(color: full ? scheme.error : muted, fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ]),
+    );
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(18, 16, 16, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(
-                width: 78,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(ride.time, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
-                  const SizedBox(height: 4),
-                  Text(friendlyDate(context, ride.dateTime), style: TextStyle(color: muted, fontSize: 12.5)),
-                ]),
+            // Heure, date (et "régulier") à gauche ; prix à droite
+            Row(children: [
+              Text(ride.time, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(friendlyDate(context, ride.dateTime),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: muted, fontSize: 13, fontWeight: FontWeight.w600)),
               ),
-              Expanded(
-                // Hero : l'itinéraire "vole" jusqu'à l'écran de détails
-                child: Hero(
-                  tag: 'ride-title-${ride.id}',
-                  child: Material(type: MaterialType.transparency, child: RouteTimeline(ride.from, ride.to)),
+              if (ride.isRecurring) ...[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: context.tr('recurring_ride'),
+                  child: Icon(Icons.repeat_rounded, size: 16, color: scheme.primary),
                 ),
-              ),
-              const SizedBox(width: 8),
+              ],
+              const Spacer(),
               PricePill(ride.price),
             ]),
             const SizedBox(height: 14),
-            const Divider(),
-            const SizedBox(height: 10),
-            Row(children: [
-              if (showDriver && d != null) ...[
-                avatar(d, radius: 13),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(d.name,
-                      overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
+            // Hero : l'itinéraire "vole" jusqu'à l'écran de détails
+            Hero(
+              tag: 'ride-title-${ride.id}',
+              child: Material(type: MaterialType.transparency, child: RouteTimeline(ride.from, ride.to, fontSize: 16)),
+            ),
+            const SizedBox(height: 14),
+            // Pied de carte sur fond teinté : conducteur (ou places) et statut
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+              decoration: BoxDecoration(
+                color: scheme.onSurface.withValues(alpha: 0.035),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(children: [
+                if (showDriver && d != null) ...[
+                  avatar(d, radius: 15),
+                  const SizedBox(width: 9),
+                  Flexible(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(d.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                      RatingLabel(d, compact: true),
+                    ]),
+                  ),
+                ] else
+                  seats,
+                const Spacer(),
                 const SizedBox(width: 6),
-                RatingLabel(d),
-              ] else
-                seats,
-              const Spacer(),
-              if (status != null) statusChip(context, status!) else if (showDriver) seats,
-            ]),
+                if (status != null) statusChip(context, status!) else if (showDriver) seats,
+              ]),
+            ),
             if (footer != null) ...[const SizedBox(height: 12), footer!],
           ]),
         ),
@@ -290,21 +428,21 @@ class SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
         color: color,
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 14),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (title != null) ...[
               Text(
-                title!.toUpperCase(),
+                title!,
                 style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 0.8,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 15,
+                  letterSpacing: -0.1,
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
             child,
           ]),
@@ -317,17 +455,21 @@ class SectionCard extends StatelessWidget {
 /// "★ 4.5 (3)" ou "Nouveau" si la personne n'a pas encore d'avis.
 class RatingLabel extends StatelessWidget {
   final AppUser user;
-  const RatingLabel(this.user, {super.key});
+
+  /// Version plus petite (pied des cartes de trajet).
+  final bool compact;
+  const RatingLabel(this.user, {super.key, this.compact = false});
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final small = compact ? 11.5 : 12.0;
     if (user.rating == null) {
-      return Text(context.tr('new_member'), style: TextStyle(color: muted, fontSize: 12));
+      return Text(context.tr('new_member'), style: TextStyle(color: muted, fontSize: small));
     }
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-      Text(' ${user.rating}', style: const TextStyle(fontWeight: FontWeight.bold)),
-      Text(' (${user.ratingCount})', style: TextStyle(color: muted, fontSize: 12)),
+      Icon(Icons.star_rounded, color: const Color(0xFFF59E0B), size: compact ? 15 : 18),
+      Text(' ${user.rating}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: compact ? 12.5 : null)),
+      Text(' (${user.ratingCount})', style: TextStyle(color: muted, fontSize: small)),
     ]);
   }
 }
@@ -359,11 +501,48 @@ class Stars extends StatelessWidget {
       );
 }
 
-Widget avatar(AppUser u, {double radius = 24}) => CircleAvatar(
-      radius: radius,
-      backgroundImage: u.photo != null ? MemoryImage(base64Decode(u.photo!)) : null,
-      child: u.photo == null ? Text(u.initial) : null,
-    );
+/// Couleurs des avatars sans photo : chaque personne garde toujours la même (calculée depuis son id).
+const _avatarColors = [
+  Color(0xFF4F46E5),
+  Color(0xFF7C3AED),
+  Color(0xFF0EA5E9),
+  Color(0xFF14B8A6),
+  Color(0xFF10B981),
+  Color(0xFFF59E0B),
+  Color(0xFFF97316),
+  Color(0xFFEC4899),
+];
+
+Color avatarColor(AppUser u) {
+  final key = u.id.isNotEmpty ? u.id : u.name;
+  final hash = key.codeUnits.fold<int>(0, (h, c) => (h * 31 + c) & 0x7fffffff);
+  return _avatarColors[hash % _avatarColors.length];
+}
+
+/// Photo de profil, ou l'initiale sur un dégradé de couleur propre à la personne.
+Widget avatar(AppUser u, {double radius = 24}) {
+  if (u.photo != null) {
+    return CircleAvatar(radius: radius, backgroundImage: MemoryImage(base64Decode(u.photo!)));
+  }
+  final c = avatarColor(u);
+  return Container(
+    width: radius * 2,
+    height: radius * 2,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color.lerp(c, Colors.white, 0.18)!, c],
+      ),
+    ),
+    child: Text(
+      u.initial,
+      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: radius * 0.85, height: 1),
+    ),
+  );
+}
 
 // ---------- Contact ----------
 
@@ -429,13 +608,31 @@ class EmptyState extends StatelessWidget {
   const EmptyState(this.icon, this.text, {super.key});
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
     // ListView pour que le "tirer pour rafraîchir" fonctionne aussi quand c'est vide
-    return ListView(children: [
-      const SizedBox(height: 100),
-      Icon(icon, size: 64, color: muted.withValues(alpha: 0.5)),
-      const SizedBox(height: 12),
-      Text(text, textAlign: TextAlign.center, style: TextStyle(color: muted)),
+    return ListView(padding: const EdgeInsets.symmetric(horizontal: 32), children: [
+      const SizedBox(height: 80),
+      Center(
+        child: Container(
+          width: 112,
+          height: 112,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [scheme.primary.withValues(alpha: 0.16), AppTheme.violet.withValues(alpha: 0.06)],
+            ),
+          ),
+          child: Icon(icon, size: 50, color: scheme.primary),
+        ),
+      ),
+      const SizedBox(height: 20),
+      Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 15, fontWeight: FontWeight.w500, height: 1.4),
+      ),
     ]);
   }
 }

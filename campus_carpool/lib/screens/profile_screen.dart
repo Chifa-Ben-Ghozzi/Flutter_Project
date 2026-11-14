@@ -7,6 +7,7 @@ import '../models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
 import '../routes.dart';
+import '../theme.dart';
 import '../validators.dart';
 import '../widgets.dart';
 import 'ride_details_screen.dart';
@@ -91,52 +92,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Form(
       key: formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: ListView(padding: const EdgeInsets.all(16), children: [
-        Center(
-          child: Stack(children: [
-            GestureDetector(
-              onTap: pickPhoto,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary]),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.surface),
-                  child: avatar(user, radius: 46),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 2,
-              bottom: 2,
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: scheme.primary,
-                child: Icon(Icons.camera_alt, size: 16, color: scheme.onPrimary),
-              ),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Center(child: Text(user.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
-        Center(child: Text(user.email ?? '', style: TextStyle(color: muted))),
-        Center(
-          child: TextButton(
-            onPressed: () => showUserProfile(context, user.id),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              RatingLabel(user),
-              Text('  · ${context.tr('see_my_reviews')}'),
-            ]),
-          ),
-        ),
+      child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+        header(user),
         if (stats != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           statsGrid(user, stats!),
         ],
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         sectionTitle('my_info'),
         Card(
           margin: EdgeInsets.zero,
@@ -192,11 +154,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Card(
           margin: EdgeInsets.zero,
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: Text(context.tr('alerts'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            leading: iconBubble(Icons.notifications_active_rounded, const Color(0xFF7C3AED)),
+            title: Text(context.tr('alerts'), style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(context.tr('alerts_subtitle')),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right_rounded, color: muted),
             onTap: () => Navigator.pushNamed(context, AppRoutes.alerts),
           ),
         ),
@@ -205,7 +167,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         settingsCard(),
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: statusColor(context, 'declined')),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: statusColor(context, 'declined'),
+            backgroundColor: statusColor(context, 'declined').withValues(alpha: 0.08),
+            side: BorderSide.none,
+          ),
           onPressed: () => context.read<AuthProvider>().logout(),
           icon: const Icon(Icons.logout),
           label: Text(context.tr('logout')),
@@ -214,43 +180,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget sectionTitle(String key) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(context.tr(key), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+  Widget sectionTitle(String key) => SectionHeader(context.tr(key));
+
+  /// Icône dans une pastille colorée (lignes de réglages).
+  Widget iconBubble(IconData icon, Color color) => Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: color, size: 21),
       );
+
+  /// En-tête au dégradé : photo (touchez pour la changer), nom, e-mail et note.
+  Widget header(AppUser user) {
+    return GradientPanel(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      child: Column(children: [
+        Stack(children: [
+          GestureDetector(
+            onTap: pickPhoto,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.9)),
+              child: avatar(user, radius: 44),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)],
+              ),
+              child: const Icon(Icons.camera_alt_rounded, size: 17, color: AppTheme.seed),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Text(user.name,
+            textAlign: TextAlign.center,
+            style:
+                const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+        const SizedBox(height: 2),
+        Text(user.email ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+        const SizedBox(height: 14),
+        // Note + lien vers mes avis, dans une pilule blanche
+        Material(
+          color: Colors.white,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: () => showUserProfile(context, user.id),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(color: Color(0xFF1E1B4B)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Theme(
+                    data: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: AppTheme.seed)),
+                    child: RatingLabel(user),
+                  ),
+                  Text('  ·  ${context.tr('see_my_reviews')}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.seed)),
+                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.seed),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 
   /// GridView : 3 colonnes de statistiques, dans la liste qui défile.
   Widget statsGrid(AppUser user, ProfileStats s) {
     final items = [
-      (Icons.directions_car, '${s.ridesAsDriver}', 'stat_driver', Colors.indigo),
-      (Icons.event_seat, '${s.ridesAsPassenger}', 'stat_passenger', Colors.teal),
-      (Icons.groups, '${s.seatsShared}', 'stat_seats', Colors.orange),
-      (Icons.schedule, '${s.upcoming}', 'stat_upcoming', Colors.purple),
-      (Icons.star_rounded, user.rating?.toString() ?? '–', 'stat_rating', Colors.amber),
-      (Icons.reviews, '${user.ratingCount}', 'stat_reviews', Colors.pink),
+      (Icons.directions_car_filled_rounded, '${s.ridesAsDriver}', 'stat_driver', const Color(0xFF4F46E5)),
+      (Icons.event_seat_rounded, '${s.ridesAsPassenger}', 'stat_passenger', const Color(0xFF14B8A6)),
+      (Icons.groups_rounded, '${s.seatsShared}', 'stat_seats', const Color(0xFFF97316)),
+      (Icons.schedule_rounded, '${s.upcoming}', 'stat_upcoming', const Color(0xFF7C3AED)),
+      (Icons.star_rounded, user.rating?.toString() ?? '–', 'stat_rating', const Color(0xFFF59E0B)),
+      (Icons.reviews_rounded, '${user.ratingCount}', 'stat_reviews', const Color(0xFFEC4899)),
     ];
+    final scheme = Theme.of(context).colorScheme;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.95,
       ),
       itemBuilder: (_, i) {
         final (icon, value, label, color) = items[i];
         return FadeSlideIn(
           index: i,
           child: Container(
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)),
-            padding: const EdgeInsets.all(8),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, color: color),
-              const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-              Text(context.tr(label), textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 11)),
+            decoration: BoxDecoration(
+              color: AppTheme.card(scheme),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: AppTheme.shadow(scheme),
+              border: scheme.brightness == Brightness.dark
+                  ? Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35))
+                  : null,
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration:
+                    BoxDecoration(color: color.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const Spacer(),
+              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+              // Hauteur fixe de 2 lignes : les chiffres restent alignés d'une tuile à l'autre
+              SizedBox(
+                height: 30,
+                child: Text(context.tr(label),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 11, height: 1.3, color: scheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
+              ),
             ]),
           ),
         );
@@ -267,11 +325,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.dark_mode_outlined),
+            iconBubble(Icons.dark_mode_rounded, const Color(0xFF4F46E5)),
             const SizedBox(width: 12),
-            Text(context.tr('theme')),
+            Text(context.tr('theme'), style: const TextStyle(fontWeight: FontWeight.w700)),
           ]),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<ThemeMode>(
@@ -292,9 +350,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(height: 24),
           Row(children: [
-            const Icon(Icons.language),
+            iconBubble(Icons.translate_rounded, const Color(0xFF14B8A6)),
             const SizedBox(width: 12),
-            Expanded(child: Text(context.tr('language'))),
+            Expanded(child: Text(context.tr('language'), style: const TextStyle(fontWeight: FontWeight.w700))),
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'fr', label: Text('FR')),

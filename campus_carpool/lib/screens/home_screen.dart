@@ -4,6 +4,8 @@ import '../l10n.dart';
 import '../providers/chat_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../routes.dart';
+import '../theme.dart';
+import '../widgets.dart';
 import 'help_chat_screen.dart';
 import 'my_bookings_screen.dart';
 import 'my_rides_screen.dart';
@@ -77,29 +79,50 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ];
     final unread = context.watch<NotificationsProvider>().unread;
     final unreadMessages = context.watch<ChatProvider>().unread;
+    final scheme = Theme.of(context).colorScheme;
+
+    // Bouton rond de la barre du haut, avec un badge de non-lus
+    Widget action(
+            {required String tooltip, required VoidCallback onPressed, required IconData icon, required int count}) =>
+        Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: IconButton(
+            tooltip: tooltip,
+            onPressed: onPressed,
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.card(scheme),
+              side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            ),
+            icon: Badge(
+              isLabelVisible: count > 0,
+              label: Text(count > 9 ? '9+' : '$count'),
+              child: Icon(icon, size: 22),
+            ),
+          ),
+        );
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Campus Carpool', style: TextStyle(fontWeight: FontWeight.bold)),
+        titleSpacing: 16,
+        title: const Row(children: [
+          BrandMark(),
+          SizedBox(width: 10),
+          Text('Campus Carpool', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+        ]),
         actions: [
-          IconButton(
+          action(
             tooltip: context.tr('messages'),
             onPressed: () => Navigator.pushNamed(context, AppRoutes.messages),
-            icon: Badge(
-              isLabelVisible: unreadMessages > 0,
-              label: Text(unreadMessages > 9 ? '9+' : '$unreadMessages'),
-              child: Icon(unreadMessages > 0 ? Icons.forum : Icons.forum_outlined),
-            ),
+            icon: unreadMessages > 0 ? Icons.forum : Icons.forum_outlined,
+            count: unreadMessages,
           ),
-          IconButton(
+          action(
             tooltip: context.tr('notifications'),
             onPressed: openNotifications,
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text(unread > 9 ? '9+' : '$unread'),
-              child: Icon(unread > 0 ? Icons.notifications_active : Icons.notifications_none),
-            ),
+            icon: unread > 0 ? Icons.notifications_active : Icons.notifications_none,
+            count: unread,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 12),
         ],
       ),
       body: SafeArea(
@@ -115,26 +138,77 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ]),
       ),
       // Caché sur les formulaires (Publier, Profil) pour ne pas masquer leurs boutons
-      floatingActionButton: index != 1 && index != 4
-          ? FloatingActionButton(
-              tooltip: context.tr('ai_help'),
-              onPressed: openHelpChat,
-              child: const Icon(Icons.auto_awesome),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) => setState(() => index = i),
-        destinations: [
-          NavigationDestination(icon: const Icon(Icons.search), label: context.tr('tab_search')),
-          NavigationDestination(icon: const Icon(Icons.add_circle_outline), label: context.tr('tab_post')),
-          NavigationDestination(icon: const Icon(Icons.directions_car), label: context.tr('tab_my_rides')),
-          NavigationDestination(icon: const Icon(Icons.event_seat), label: context.tr('tab_bookings')),
-          NavigationDestination(icon: const Icon(Icons.person), label: context.tr('tab_profile')),
-        ],
+      floatingActionButton: index != 1 && index != 4 ? _AiButton(onPressed: openHelpChat) : null,
+      // Barre d'onglets blanche, séparée du contenu par un filet ; icône pleine sur l'onglet actif
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))),
+        ),
+        child: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: (i) => setState(() => index = i),
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.search_rounded),
+              selectedIcon: const Icon(Icons.travel_explore_rounded),
+              label: context.tr('tab_search'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              selectedIcon: const Icon(Icons.add_circle_rounded),
+              label: context.tr('tab_post'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.directions_car_outlined),
+              selectedIcon: const Icon(Icons.directions_car_filled_rounded),
+              label: context.tr('tab_my_rides'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.event_seat_outlined),
+              selectedIcon: const Icon(Icons.event_seat_rounded),
+              label: context.tr('tab_bookings'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.person_outline_rounded),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: context.tr('tab_profile'),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// Bouton de l'assistant : rond, au dégradé de la marque, avec une ombre colorée.
+class _AiButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _AiButton({required this.onPressed});
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: context.tr('ai_help'),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppTheme.brandGradient,
+            boxShadow: [
+              BoxShadow(color: AppTheme.violet.withValues(alpha: 0.4), blurRadius: 18, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onPressed,
+              child: const SizedBox(
+                width: 58,
+                height: 58,
+                child: Icon(Icons.auto_awesome, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// Bandeau affiché quand le serveur est injoignable (les listes viennent alors du cache).
