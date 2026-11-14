@@ -1,5 +1,5 @@
 // Données de démonstration dans Firebase : `npm run seed`
-// ⚠️ Efface les collections rides, bookings, reviews et notifications, et recrée les comptes de démo.
+// ⚠️ Efface les collections rides, bookings, reviews, notifications, messages et alertes, et recrée les comptes de démo.
 // Tous les comptes ont le mot de passe : demo123
 const admin = require('firebase-admin');
 const path = require('path');
@@ -65,7 +65,7 @@ async function clear(name) {
     const created = await auth.createUser({ email: p.email, password: 'demo123', displayName: p.name });
     u[p.key] = { uid: created.uid, name: p.name, ratingSum: 0, ratingCount: 0, ...p };
   }
-  await Promise.all(['rides', 'bookings', 'reviews', 'notifications'].map(clear));
+  await Promise.all(['rides', 'bookings', 'reviews', 'notifications', 'messages', 'alerts'].map(clear));
 
   const batch = db.batch();
   const rides = {};
@@ -132,14 +132,15 @@ async function clear(name) {
 
   // ---------- Trajets à venir ----------
   const f1 = ride('f1', 'demo', 'Esprit Ghazela', 'La Marsa', 1, '17:00', 3, 4);
-  book(f1, 'sarra', 'pending', 0); book(f1, 'mehdi', 'accepted', 1);
+  const bSarra = book(f1, 'sarra', 'pending', 0); book(f1, 'mehdi', 'accepted', 1);
   notif('demo', 'booking_new', f1, { name: 'Sarra Gharbi' }, 0, false);
 
   const f2 = ride('f2', 'amira', 'La Marsa', 'Esprit Ghazela', 1, '08:00', 3, 4);
-  book(f2, 'demo', 'accepted', 1);
+  const bDemo = book(f2, 'demo', 'accepted', 1);
   notif('demo', 'booking_accepted', f2, { name: 'Amira Ben Salah' }, 0, false);
 
   ride('f3', 'youssef', 'Tunis Centre', 'Esprit Ghazela', 2, '07:45', 4, 3.5);
+  const f3Ride = () => rides.f3;
   const f4 = ride('f4', 'mehdi', 'Manouba', 'Esprit Ghazela', 2, '08:30', 3, 4.5);
   book(f4, 'ines', 'pending', 0);
   ride('f5', 'amira', 'Esprit Ghazela', 'Ariana', 3, '16:30', 2, 2.5);
@@ -147,6 +148,36 @@ async function clear(name) {
   ride('f7', 'mehdi', 'El Menzah 6', 'Raoued', 5, '12:00', 3, 3);
   ride('f8', 'demo', 'Esprit Ghazela', 'Tunis Centre', 6, '18:00', 4, 3.5);
 
+  // ---------- Trajet régulier : Youssef, Tunis Centre -> Esprit, lundi à vendredi pendant 2 semaines ----------
+  for (let i = 7; i <= 20; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) continue; // pas le week-end
+    ride(`s${i}`, 'youssef', 'Tunis Centre', 'Esprit Ghazela', i, '07:45', 4, 3.5).seriesId = 'youssef-weekdays';
+  }
+
+  // ---------- Messagerie ----------
+  function msg(r, bookingId, from, to, text, minutesAgo, read = true) {
+    const createdAt = Timestamp.fromDate(new Date(Date.now() - minutesAgo * 60000));
+    batch.set(db.collection('messages').doc(), {
+      bookingId, rideId: r.id, from: u[from].uid, to: u[to].uid, fromName: u[from].name, toName: u[to].name,
+      route: `${r.from} → ${r.to}`, text, createdAt, read, pushed: true, // pushed: true -> pas de push pour l'historique
+    });
+  }
+  msg(f2, bDemo, 'demo', 'amira', 'Bonjour Amira, où est-ce qu\'on se retrouve demain ?', 95);
+  msg(f2, bDemo, 'amira', 'demo', 'Bonjour ! Devant la station de métro TGM La Marsa, à 7h55.', 80);
+  msg(f2, bDemo, 'demo', 'amira', 'Parfait, merci 🙏', 78);
+  msg(f2, bDemo, 'amira', 'demo', 'Je serai dans une Clio grise, à demain !', 20, false);
+  msg(f1, bSarra, 'sarra', 'demo', 'Salut ! Il reste de la place dans le coffre pour un petit sac ?', 35, false);
+
+  // ---------- Alertes de trajet ----------
+  const alert = (who, from, to, maxPrice = null) => batch.set(db.collection('alerts').doc(), {
+    userId: u[who].uid, from, to, maxPrice, createdAt: ago(2),
+  });
+  alert('demo', 'Ariana', 'Esprit');
+  alert('demo', '', 'Lac 2', 6);
+  alert('sarra', 'Esprit', 'La Marsa');
+
+  notif('demo', 'ride_alert', f3Ride(), { name: 'Youssef Trabelsi', price: 3.5, count: 1 }, 1);
   notif('demo', 'review', p2, { name: 'Ines Mansour', stars: 5 }, 4);
   notif('demo', 'review', p1, { name: 'Amira Ben Salah', stars: 5 }, 6);
   notif('amira', 'booking_new', f2, { name: 'Demo' }, 1);
@@ -168,7 +199,7 @@ async function clear(name) {
   }
   await batch.commit();
 
-  console.log(`OK : ${people.length} comptes, ${Object.keys(rides).length} trajets, ${bookings.length} réservations.`);
+  console.log(`OK : ${people.length} comptes, ${Object.keys(rides).length} trajets, ${bookings.length} réservations, messages et alertes de démo.`);
   console.log('Comptes (mot de passe demo123) :');
   people.forEach((p) => console.log('  ' + p.email));
   process.exit(0);

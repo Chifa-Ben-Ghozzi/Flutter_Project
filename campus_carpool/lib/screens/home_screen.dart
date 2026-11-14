@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n.dart';
+import '../providers/chat_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../routes.dart';
 import 'help_chat_screen.dart';
@@ -75,10 +76,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ProfileScreen(),
     ];
     final unread = context.watch<NotificationsProvider>().unread;
+    final unreadMessages = context.watch<ChatProvider>().unread;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Campus Carpool', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+            tooltip: context.tr('messages'),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.messages),
+            icon: Badge(
+              isLabelVisible: unreadMessages > 0,
+              label: Text(unreadMessages > 9 ? '9+' : '$unreadMessages'),
+              child: Icon(unreadMessages > 0 ? Icons.forum : Icons.forum_outlined),
+            ),
+          ),
           IconButton(
             tooltip: context.tr('notifications'),
             onPressed: openNotifications,

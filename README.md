@@ -12,10 +12,13 @@ Campus Carpool is a Flutter app that helps university communities share rides. F
 - **Join with a university email** — Firebase Authentication; only university-style domains (`univ`, `.edu`, `.ac.*`) can create a profile (checked in the app and in the security rules).
 - **Find a ride** — filter open trips by destination, date, maximum price and minimum free seats.
 - **Offer a ride** — a validated form (departure ≠ destination, future date/time, 1–8 seats, positive price).
+- **Recurring rides** — post a daily commute once: pick the weekdays (e.g. Mon–Fri) and 1–8 weeks, and every date is created in one batch, linked by a `seriesId`. The driver can later cancel one date or the whole series.
+- **Ride alerts** — save a search ("Ariana → Esprit, max 5 dt") from the search screen or Profile → *Ride alerts*. When a driver posts a matching ride, you get a notification and a push (one per series, not one per date).
 - **Ride details with a map** — OpenStreetMap view of the route with real road distance and travel time, plus a one-tap "Directions" link to Google Maps.
 - **Handle requests** — drivers accept or decline; seats update automatically in a Firestore transaction.
 
 **Trust & communication**
+- **In-app chat** — driver and passenger message each other in real time on every booking (pending or accepted), without sharing a phone number: read receipts, quick replies ("I'm on my way 🚗"), an inbox with unread badges, and a push notification for each new message.
 - **Call or WhatsApp** — once a booking is accepted, driver and passenger get *Call* and *WhatsApp* buttons.
 - **Ratings & reviews** — after the ride, driver and passenger rate each other (1–5 ★ + comment), once per ride.
 - **Real-time notifications** — the bell badge updates instantly (Firestore listener); Android notifications while the app is open, and **push notifications when it is closed** (Firebase Cloud Messaging through the free push server).
@@ -43,10 +46,10 @@ Campus Carpool is a Flutter app that helps university communities share rides. F
 ```text
 Flutter app (campus_carpool/lib)
   screens/        UI (one file per screen)                              [presentation]
-  providers/      shared state (ChangeNotifier): session, notifications, settings
+  providers/      shared state (ChangeNotifier): session, notifications, unread messages, settings
         │ calls
         ▼
-  repositories/   business logic, one per domain: users, rides, bookings, reviews, notifications
+  repositories/   business logic, one per domain: users, rides, bookings, reviews, notifications, chat, alerts
         │ uses
         ▼
   services/       technical access: Firestore, Firebase Auth, HTTP, geocoding, routing, errors
@@ -124,7 +127,7 @@ firebase deploy --only firestore:rules
 ```sh
 cd campus_carpool
 flutter analyze            # 0 issues (flutter_lints)
-flutter test               # 53 tests, Firestore simulated in memory (fake_cloud_firestore)
+flutter test               # 69 tests, Firestore simulated in memory (fake_cloud_firestore)
 
 cd push-server
 npm run test:rules         # 18 checks of firestore.rules on the real project (then: npm run seed)
@@ -138,6 +141,7 @@ npm run test:rules         # 18 checks of firestore.rules on the real project (t
 | `test/l10n_test.dart` | Every text exists in FR and EN, every `context.tr('…')` has a translation |
 | `test/widget_test.dart` | Forms (FR/EN), named routes, ride details and booking |
 | `test/app_flow_test.dart` | Full signed-in journey: tabs, real-time notification, dark mode, language |
+| `test/advanced_features_test.dart` | Chat (send, live inbox, read receipts, closed conversations), ride alerts (matching, one notification per person), recurring rides (dates, series, cancelling a series) |
 | `push-server/rules-test.js` | Allowed actions pass and forbidden ones are refused by the live security rules |
 
 ## 🗂️ Project map

@@ -188,11 +188,59 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['userId', 'type', 'rideId', 'data', 'read', 'pushed', 'createdAt'])
         && request.resource.data.userId != me()
         && request.resource.data.type in ['booking_new', 'booking_accepted', 'booking_declined',
-                                          'booking_cancelled', 'ride_cancelled', 'ride_ended', 'review']
+                                          'booking_cancelled', 'ride_cancelled', 'ride_ended', 'review',
+                                          'ride_alert']
         && request.resource.data.read == false
         && request.resource.data.pushed == false;
       allow update: if signedIn() && resource.data.userId == me()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    // ---------- Messagerie (une conversation par réservation, entre son conducteur et son passager) ----------
+    match /messages/{messageId} {
+      // On ne lit que ses propres messages : l'app interroge "from == moi" et "to == moi"
+      allow read: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+      allow create: if signedIn() && validMessage();
+      // Seul le destinataire peut marquer un message comme lu ; un message n'est jamais modifié ni supprimé
+      allow update: if signedIn() && resource.data.to == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+    }
+
+    function validMessage() {
+      let d = request.resource.data;
+      let b = get(/databases/$(database)/documents/bookings/$(d.bookingId)).data;
+      return d.keys().hasOnly(['bookingId', 'rideId', 'from', 'to', 'fromName', 'toName', 'route',
+                               'text', 'createdAt', 'read', 'pushed'])
+        && d.from == me() && d.to != me()
+        && b.rideId == d.rideId
+        && b.status in ['pending', 'accepted']
+        && ((b.passengerId == me() && b.driverId == d.to) || (b.driverId == me() && b.passengerId == d.to))
+        && d.text is string && d.text.size() >= 1 && d.text.size() <= 1000
+        && d.fromName is string && d.fromName.size() <= 80
+        && d.toName is string && d.toName.size() <= 80
+        && d.route is string && d.route.size() <= 200
+        && d.read == false && d.pushed == false
+        && d.createdAt == request.time;
+    }
+
+    // ---------- Alertes de trajet ----------
+    match /alerts/{alertId} {
+      // Lisibles par tous les connectés : l'app du conducteur prévient les intéressés en publiant
+      allow read: if signedIn();
+      allow create: if signedIn() && validAlert();
+      allow delete: if signedIn() && resource.data.userId == me();
+    }
+
+    function validAlert() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['userId', 'from', 'to', 'maxPrice', 'createdAt'])
+        && d.userId == me()
+        && d.from is string && d.from.size() <= 80
+        && d.to is string && d.to.size() <= 80
+        && (d.from.size() > 0 || d.to.size() > 0)
+        && (d.maxPrice == null || (d.maxPrice is number && d.maxPrice >= 0 && d.maxPrice <= 200))
+        && d.createdAt == request.time;
     }
   }
 }

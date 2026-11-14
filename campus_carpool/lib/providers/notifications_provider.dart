@@ -10,6 +10,7 @@ import 'auth_provider.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/user_repository.dart';
 import '../services/firestore_service.dart';
+import '../widgets.dart' show fmtPrice;
 
 /// Notifications (Provider), en temps réel avec Firestore :
 /// - l'app écoute la collection `notifications` de l'utilisateur : le badge de la cloche
@@ -30,6 +31,9 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Appelé quand l'utilisateur touche une notification (id du trajet).
   void Function(String rideId)? onOpenRide;
+
+  /// Appelé quand l'utilisateur touche la notification d'un message (id de la réservation).
+  void Function(String bookingId)? onOpenChat;
 
   final _local = FlutterLocalNotificationsPlugin();
   bool _localReady = false;
@@ -74,22 +78,26 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     _onAuthChange();
   }
 
-  /// Notification push qui a lancé l'app alors qu'elle était fermée.
-  Future<String?> launchRideId() async {
+  /// Notification qui a lancé l'app alors qu'elle était fermée : trajet ou conversation à ouvrir.
+  Future<PushTarget?> launchTarget() async {
     if (!enablePush || !_android) return null;
     try {
       final m = await FirebaseMessaging.instance.getInitialMessage();
-      if (m?.data['rideId'] != null) return m!.data['rideId'];
+      final t = m == null ? null : PushTarget.fromData(m.data);
+      if (t != null) return t;
       final d = await _local.getNotificationAppLaunchDetails();
-      return (d?.didNotificationLaunchApp ?? false) ? d!.notificationResponse?.payload : null;
+      final id = (d?.didNotificationLaunchApp ?? false) ? d!.notificationResponse?.payload : null;
+      return id == null || id.isEmpty ? null : PushTarget(id);
     } catch (_) {
       return null;
     }
   }
 
+  void open(PushTarget t) => t.chat ? onOpenChat?.call(t.id) : onOpenRide?.call(t.id);
+
   void _openFromPush(RemoteMessage m) {
-    final id = m.data['rideId'];
-    if (id is String && id.isNotEmpty) onOpenRide?.call(id);
+    final t = PushTarget.fromData(m.data);
+    if (t != null) open(t);
   }
 
   @override
@@ -103,7 +111,8 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
     _sub?.cancel();
     if (auth.loggedIn) {
       _firstSnapshot = true;
-      _sub = NotificationRepository.myQuery().snapshots(includeMetadataChanges: true).listen(_onSnapshot, onError: (_) {});
+      _sub =
+          NotificationRepository.myQuery().snapshots(includeMetadataChanges: true).listen(_onSnapshot, onError: (_) {});
       _registerPushToken();
       auth.beforeLogout = _unregisterPushToken;
     } else {
@@ -219,6 +228,20 @@ class NotificationsProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 }
 
+/// Ce qu'ouvre une notification push : un trajet, ou une conversation (message).
+class PushTarget {
+  final String id;
+  final bool chat;
+  const PushTarget(this.id, {this.chat = false});
+
+  static PushTarget? fromData(Map<String, dynamic> data) {
+    final booking = data['bookingId'], ride = data['rideId'];
+    if (data['type'] == 'message' && booking is String && booking.isNotEmpty) return PushTarget(booking, chat: true);
+    if (ride is String && ride.isNotEmpty) return PushTarget(ride);
+    return null;
+  }
+}
+
 // ---------- Texte et apparence d'une notification ----------
 
 /// Titre dans la langue choisie.
@@ -230,13 +253,17 @@ String notifTitle(AppNotification n, L10n l10n) {
 
 String notifBody(AppNotification n, L10n l10n) {
   if (n.data.isEmpty) return n.body;
-  final key = 'notif_${n.type}_body';
+  final count = (n.data['count'] as num?)?.toInt() ?? 1;
+  // Alerte sur un trajet régulier : « … 12 fois à partir du … »
+  final key = n.type == 'ride_alert' && count > 1 ? 'notif_ride_alert_series_body' : 'notif_${n.type}_body';
   final t = l10n.tr(key, {
     'name': n.data['name'] ?? '',
     'route': '${n.data['from']} → ${n.data['to']}',
     'date': n.data['date'] ?? '',
     'time': n.data['time'] ?? '',
     'stars': n.data['stars'] ?? '',
+    'price': n.data['price'] is num ? fmtPrice((n.data['price'] as num).toDouble()) : '',
+    'count': count,
   });
   return t == key ? n.body : t;
 }
@@ -248,6 +275,7 @@ IconData notifIcon(String type) => switch (type) {
       'booking_declined' => Icons.cancel,
       'booking_cancelled' || 'ride_cancelled' => Icons.event_busy,
       'review' => Icons.star,
+      'ride_alert' => Icons.notifications_active,
       _ => Icons.notifications,
     };
 
@@ -256,5 +284,6 @@ Color notifColor(String type) => switch (type) {
       'ride_ended' => Colors.green,
       'booking_declined' || 'booking_cancelled' || 'ride_cancelled' => Colors.red,
       'review' => Colors.amber,
+      'ride_alert' => Colors.deepPurple,
       _ => const Color(0xFF3F51B5),
     };

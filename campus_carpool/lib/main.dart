@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'l10n.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/settings_provider.dart';
 import 'routes.dart';
 import 'theme.dart';
 import 'screens/auth_screen.dart';
+import 'screens/chat_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ride_details_screen.dart';
 import 'screens/splash_screen.dart';
@@ -30,6 +32,7 @@ void main() async {
   final settings = SettingsProvider();
   final auth = AuthProvider();
   final notifs = NotificationsProvider(auth, l10n);
+  final chat = ChatProvider(auth);
   await Future.wait([l10n.load(), settings.load()]);
   l10n.addListener(notifs.syncLanguage); // langue des notifications push
 
@@ -39,28 +42,36 @@ void main() async {
       ChangeNotifierProvider.value(value: settings),
       ChangeNotifierProvider.value(value: auth),
       ChangeNotifierProvider.value(value: notifs),
+      ChangeNotifierProvider.value(value: chat),
       ChangeNotifierProvider.value(value: FirestoreService.network),
     ],
     // L10nScope : context.tr('clé') partout, y compris dans les dialogues
-    child: L10nScope(l10n: l10n, child: CarpoolApp(init: () => _init(auth, notifs))),
+    child: L10nScope(l10n: l10n, child: CarpoolApp(init: () => _init(auth, notifs, chat))),
   ));
 }
 
-/// Pendant le splash : reprend la session puis démarre les notifications.
-Future<void> _init(AuthProvider auth, NotificationsProvider notifs) async {
+/// Pendant le splash : reprend la session puis démarre les notifications et la messagerie.
+Future<void> _init(AuthProvider auth, NotificationsProvider notifs, ChatProvider chat) async {
   await auth.init();
+  chat.init();
   notifs.onOpenRide = _openRideFromNotification;
+  notifs.onOpenChat = _openChatFromNotification;
   await notifs.init();
-  final launchRide = await notifs.launchRideId();
-  if (launchRide != null) {
-    Future.delayed(const Duration(seconds: 3), () => _openRideFromNotification(launchRide));
+  final launch = await notifs.launchTarget();
+  if (launch != null) {
+    Future.delayed(const Duration(seconds: 3), () => notifs.open(launch));
   }
 }
 
-// Toucher une notification du téléphone ouvre le trajet concerné
+// Toucher une notification du téléphone ouvre le trajet ou la conversation concernés
 void _openRideFromNotification(String rideId) {
   final ctx = navigatorKey.currentContext;
   if (ctx != null && ctx.read<AuthProvider>().loggedIn) openRide(ctx, rideId);
+}
+
+void _openChatFromNotification(String bookingId) {
+  final ctx = navigatorKey.currentContext;
+  if (ctx != null && ctx.read<AuthProvider>().loggedIn) openChat(ctx, bookingId);
 }
 
 class CarpoolApp extends StatelessWidget {

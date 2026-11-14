@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../widgets.dart';
+import 'chat_screen.dart';
 import 'ride_details_screen.dart';
 import '../repositories/booking_repository.dart';
 
@@ -47,6 +48,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 Expanded(child: InfoLine(Icons.call_outlined, context.tr('tap_to_call_driver'), color: primary))
               else
                 const Spacer(),
+              if (b.isUpcoming)
+                IconButton(
+                  tooltip: context.tr('msg_send_message'),
+                  onPressed: () => openChat(context, b.id),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                ),
               if (b.isUpcoming)
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: statusColor(context, 'declined')),

@@ -3,12 +3,13 @@ import '../models.dart';
 import '../services/exceptions.dart';
 import '../services/firestore_service.dart';
 import '../services/geocoding_service.dart';
+import 'alert_repository.dart';
 import 'mappers.dart';
 import 'notification_repository.dart';
 import 'review_repository.dart';
 import 'user_repository.dart';
 
-/// Trajets : recherche, publication, mes trajets, détails, annulation, fin du trajet.
+/// Trajets : recherche, publication (simple ou régulière), mes trajets, détails, annulation, fin du trajet.
 class RideRepository {
   static CollectionReference<Map<String, dynamic>> get _rides => FirestoreService.rides;
   static CollectionReference<Map<String, dynamic>> get _bookings => FirestoreService.bookings;
@@ -44,26 +45,88 @@ class RideRepository {
             .toList();
       });
 
+  /// Nombre maximum de trajets créés par une série (trajet régulier).
+  static const maxSeriesRides = 60;
+
+  /// Dates d'un trajet régulier : à partir de [first], chaque jour de [weekdays]
+  /// (1 = lundi … 7 = dimanche, comme DateTime.weekday) pendant [weeks] semaines.
+  static List<DateTime> occurrences(DateTime first, Set<int> weekdays, int weeks) => [
+        for (var i = 0; i < weeks * 7; i++)
+          // Constructeur avec le jour + i : reste correct lors des changements d'heure
+          DateTime(first.year, first.month, first.day + i, first.hour, first.minute),
+      ].where((d) => weekdays.contains(d.weekday)).toList();
+
   /// Publie un trajet (avec ses coordonnées pour la carte quand le géocodage répond).
-  static Future<void> publish(Map<String, dynamic> b) => FirestoreService.run(() async {
-        final date = DateTime.parse('${b['date']}T${b['time']}:00');
-        if (date.isBefore(DateTime.now())) throw ApiException('Date/heure invalide');
+  /// Trajet régulier : `repeatDays` (jours de la semaine) et `repeatWeeks` créent toutes les dates
+  /// d'un coup, reliées par le même `seriesId`.
+  /// Les utilisateurs dont une alerte correspond sont prévenus (une seule notification par série).
+  /// Renvoie le nombre de trajets publiés.
+  static Future<int> publish(Map<String, dynamic> b) => FirestoreService.run(() async {
+        final now = DateTime.now();
+        final first = DateTime.parse('${b['date']}T${b['time']}:00');
+        if (first.isBefore(now)) throw ApiException('Date/heure invalide');
+        final days = (b['repeatDays'] as Iterable?)?.cast<int>().toSet() ?? const <int>{};
+        final dates = days.isEmpty
+            ? [first]
+            : occurrences(first, days, b['repeatWeeks'] as int? ?? 1).where((d) => d.isAfter(now)).toList();
+        if (dates.isEmpty) throw ApiException('Aucune date dans la période choisie');
+        if (dates.length > maxSeriesRides) throw ApiException('Trop de dates (maximum $maxSeriesRides)');
+
         final seats = b['seats'] as int;
         final coords = await GeocodingService.geocodeRoute(b['from'], b['to']);
-        await _rides.add({
-          'driverId': FirestoreService.currentUid,
-          'from': b['from'],
-          'to': b['to'],
-          'date': b['date'],
-          'time': b['time'],
-          'dateTime': Timestamp.fromDate(date),
-          'seats': seats,
-          'seatsLeft': seats,
-          'price': b['price'],
-          'status': 'open',
-          'createdAt': FieldValue.serverTimestamp(),
-          ...?coords,
-        });
+        final refs = [for (final _ in dates) _rides.doc()];
+        final seriesId = dates.length > 1 ? refs.first.id : null;
+        final rides = [
+          for (final d in dates)
+            {
+              'driverId': FirestoreService.currentUid,
+              'from': b['from'],
+              'to': b['to'],
+              'date': Mappers.day(d),
+              'time': b['time'],
+              'dateTime': Timestamp.fromDate(d),
+              'seats': seats,
+              'seatsLeft': seats,
+              'price': b['price'],
+              'status': 'open',
+              'createdAt': FieldValue.serverTimestamp(),
+              if (seriesId != null) 'seriesId': seriesId,
+              ...?coords,
+            },
+        ];
+        final batch = FirestoreService.db.batch();
+        for (var i = 0; i < refs.length; i++) {
+          batch.set(refs[i], rides[i]);
+        }
+
+        // Alertes : on prévient une fois, avec le premier trajet de la série
+        final firstId = refs.first.id;
+        final interested = await AlertRepository.matchingUsers(Ride.fromJson({...rides.first, 'id': firstId}));
+        if (interested.isNotEmpty) {
+          final myName = await UserRepository.myName();
+          for (final u in interested) {
+            NotificationRepository.add(batch, u, 'ride_alert', rides.first, firstId,
+                {'name': myName, 'price': b['price'], 'count': dates.length});
+          }
+        }
+        await batch.commit();
+        return dates.length;
+      });
+
+  /// Annule toutes les dates à venir d'un trajet régulier. Renvoie le nombre de trajets annulés.
+  static Future<int> cancelSeries(String seriesId) => FirestoreService.run(() async {
+        final now = DateTime.now();
+        final docs = (await _rides
+                .where('driverId', isEqualTo: FirestoreService.currentUid)
+                .where('seriesId', isEqualTo: seriesId)
+                .get())
+            .docs
+            .where((d) => d.data()['status'] == 'open' && Mappers.rideDate(d.data()).isAfter(now))
+            .toList();
+        for (final d in docs) {
+          await cancel(d.id);
+        }
+        return docs.length;
       });
 
   /// Mes trajets (conducteur) avec les demandes reçues.
