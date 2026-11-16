@@ -1,14 +1,17 @@
 {
   "name": "campus-carpool-push-server",
   "version": "1.0.0",
-  "description": "Sends Firebase Cloud Messaging push notifications for new Firestore notifications (free Spark plan, no Cloud Functions needed)",
+  "description": "Campus Carpool companion server: push notifications (FCM) and the AI assistant (Claude)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "seed": "node seed.js",
-    "test:rules": "node rules-test.js"
+    "test:rules": "node rules-test.js",
+    "assistant": "node assistant.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@google/genai": "^3.3.0",
     "firebase-admin": "^13.10.0"
   }
 }
