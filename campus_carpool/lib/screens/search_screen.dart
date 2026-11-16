@@ -5,6 +5,7 @@ import '../models.dart';
 import '../providers/auth_provider.dart';
 import '../theme.dart';
 import '../repositories/booking_repository.dart';
+import '../repositories/connection_repository.dart';
 import '../repositories/ride_repository.dart';
 import '../widgets.dart';
 import 'alerts_screen.dart';
@@ -23,6 +24,8 @@ class _SearchScreenState extends State<SearchScreen> {
   double? maxPrice;
   int? minSeats;
   List<Ride> rides = [];
+  // Itinéraires avec correspondance, proposés quand il n'y a aucun trajet direct
+  List<RideConnection> connections = [];
   bool loading = true;
 
   @override
@@ -47,7 +50,20 @@ class _SearchScreenState extends State<SearchScreen> {
       if (maxPrice != null) 'maxPrice': fmtPrice(maxPrice!),
       if (minSeats != null) 'minSeats': '$minSeats',
     };
-    await guard(context, () async => rides = await RideRepository.search(q));
+    await guard(context, () async {
+      rides = await RideRepository.search(q);
+      connections = const [];
+      // Aucun trajet direct entre deux lieux : on cherche deux covoiturages qui s'enchaînent
+      if (rides.isEmpty && q.containsKey('from') && q.containsKey('destination')) {
+        connections = await ConnectionRepository.find(
+          from: q['from']!,
+          to: q['destination']!,
+          date: q['date'],
+          maxPrice: maxPrice,
+          minSeats: minSeats,
+        );
+      }
+    });
     if (mounted) setState(() => loading = false);
   }
 
@@ -69,6 +85,17 @@ class _SearchScreenState extends State<SearchScreen> {
         from.text = dest.text;
         dest.text = t;
       });
+
+  /// Demande une place sur chacun des deux trajets d'une correspondance (ceux pas encore demandés).
+  Future<void> bookConnection(RideConnection c) async {
+    final msg = context.tr('conn_requested');
+    var ok = true;
+    for (final r in [c.first, c.second]) {
+      if (ok && r.myBookingStatus == null) ok = await guard(context, () => BookingRepository.request(r.id));
+    }
+    if (ok && mounted) toast(context, msg);
+    load();
+  }
 
   Future<void> book(Ride r) async {
     final msg = context.tr('toast_request_sent');
@@ -257,11 +284,119 @@ class _SearchScreenState extends State<SearchScreen> {
             label: Text(context.tr('alert_create_from_search')),
           ),
         ),
-      if (rides.isEmpty)
+      if (rides.isEmpty && connections.isNotEmpty) ...[
+        SectionHeader(context.tr('conn_title'), padding: const EdgeInsets.fromLTRB(20, 10, 20, 2)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+          child: Text(context.tr('conn_hint'),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+        ),
+        for (final (i, c) in connections.indexed) FadeSlideIn(index: i, child: connectionCard(c)),
+      ] else if (rides.isEmpty)
         SizedBox(height: 280, child: EmptyState(Icons.search_off, context.tr('no_rides_found')))
       else
         for (final (i, r) in rides.indexed) FadeSlideIn(index: i, child: card(r)),
     ]);
+  }
+
+  /// "25 min" ou "1 h 05".
+  static String fmtWait(Duration d) =>
+      d.inMinutes < 60 ? '${d.inMinutes} min' : '${d.inHours} h ${two(d.inMinutes % 60)}';
+
+  /// Carte d'un itinéraire avec correspondance : les deux trajets, le lieu et le temps d'attente, le prix total.
+  Widget connectionCard(RideConnection c) {
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
+
+    // Un des deux trajets ; le toucher ouvre ses détails
+    Widget leg(Ride r) => InkWell(
+          onTap: () async {
+            if (await openRide(context, r.id)) load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
+            child: Row(children: [
+              SizedBox(
+                width: 54,
+                child: Text(r.time, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+              ),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.route,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (r.driver != null) r.driver!.name,
+                      '${fmtPrice(r.price)} dt',
+                      context.tr('seats_left_of', {'left': r.seatsLeft, 'total': r.seats}),
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: muted, fontSize: 12.5),
+                  ),
+                ]),
+              ),
+              if (r.myBookingStatus != null) statusChip(context, r.myBookingStatus!),
+              Icon(Icons.chevron_right, color: muted, size: 20),
+            ]),
+          ),
+        );
+
+    final allRequested = c.first.myBookingStatus != null && c.second.myBookingStatus != null;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 16, 2),
+          child: Row(children: [
+            Icon(Icons.alt_route_rounded, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(friendlyDate(context, c.first.dateTime),
+                  style: TextStyle(color: muted, fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            PricePill(c.price),
+          ]),
+        ),
+        leg(c.first),
+        // Bandeau de correspondance : où changer de voiture, et combien de temps on attend
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Icon(Icons.transfer_within_a_station_rounded, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.tr('conn_stop', {
+                  'place': c.via,
+                  'arrival': '${two(c.arrival.hour)}:${two(c.arrival.minute)}',
+                  'wait': fmtWait(c.wait),
+                }),
+                style: TextStyle(color: scheme.primary, fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ]),
+        ),
+        leg(c.second),
+        if (!allRequested)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
+            child: FilledButton.tonal(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: () => bookConnection(c),
+              child: Text(context.tr('conn_request_both')),
+            ),
+          )
+        else
+          const SizedBox(height: 6),
+      ]),
+    );
   }
 
   Widget card(Ride r) => RideCard(

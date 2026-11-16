@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n.dart';
+import '../models.dart';
 import '../providers/chat_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../routes.dart';
@@ -24,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int index = 0;
   // Change au retour des notifications => l'onglet courant se recharge
   int refreshKey = 0;
+  // Valeurs proposées par l'assistant IA pour le formulaire « Publier »
+  RidePrefill? prefill;
 
   @override
   void initState() {
@@ -62,6 +65,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               setState(() => index = destination);
               Navigator.pop(context);
             },
+            onPrefill: (values) {
+              setState(() {
+                prefill = values;
+                index = 1;
+                refreshKey++; // recrée le formulaire avec ces valeurs
+              });
+              Navigator.pop(context);
+            },
           ),
         ),
       ),
@@ -70,12 +81,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    const pages = <Widget>[
-      SearchScreen(),
-      PostRideScreen(),
-      MyRidesScreen(),
-      MyBookingsScreen(),
-      ProfileScreen(),
+    final pages = <Widget>[
+      const SearchScreen(),
+      PostRideScreen(prefill: prefill),
+      const MyRidesScreen(),
+      const MyBookingsScreen(),
+      const ProfileScreen(),
     ];
     final unread = context.watch<NotificationsProvider>().unread;
     final unreadMessages = context.watch<ChatProvider>().unread;
@@ -146,7 +157,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         child: NavigationBar(
           selectedIndex: index,
-          onDestinationSelected: (i) => setState(() => index = i),
+          onDestinationSelected: (i) => setState(() {
+            index = i;
+            prefill = null; // le pré-remplissage ne sert qu'une fois
+          }),
           destinations: [
             NavigationDestination(
               icon: const Icon(Icons.search_rounded),

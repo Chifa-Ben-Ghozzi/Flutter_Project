@@ -108,6 +108,15 @@ cd campus_carpool/push-server
 npm start
 ```
 
+### 2b. AI assistant server (natural-language ride search and voice input)
+The ✨ button opens an assistant: the student types or dictates "a ride to Esprit tomorrow around 8 from Ariana". The AI model (Google Gemini on its free tier, or Claude) picks the tools (search rides, propose an alert, pre-fill the Post form, open a section); the **app** runs them with the signed-in user's Firestore rights and shows ride cards and action buttons. The assistant never books or publishes by itself. The API key stays on this small server (`push-server/assistant.js`), which checks the user's Firebase sign-in token; it needs no `service-account.json`.
+```sh
+cd campus_carpool/push-server
+copy .env.example .env     # then paste a free key from aistudio.google.com/apikey: GEMINI_API_KEY=...
+npm run assistant          # http://localhost:8787
+```
+While it is not running, the assistant falls back to the built-in offline guide. On a real phone, point the app at your PC: `flutter run --dart-define=ASSISTANT_URL=http://<PC-IP>:8787`. Voice dictation uses the device's (or Chrome's) speech recognition and needs the microphone permission.
+
 ### 3. The app
 ```sh
 cd campus_carpool

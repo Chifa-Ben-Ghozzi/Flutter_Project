@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../l10n.dart';
+import '../models.dart';
 import '../validators.dart';
 import '../widgets.dart';
 import '../repositories/ride_repository.dart';
 
 class PostRideScreen extends StatefulWidget {
-  const PostRideScreen({super.key});
+  const PostRideScreen({super.key, this.prefill});
+
+  /// Valeurs proposées par l'assistant IA ; l'utilisateur les vérifie avant de publier.
+  final RidePrefill? prefill;
   @override
   State<PostRideScreen> createState() => _PostRideScreenState();
 }
@@ -28,6 +32,25 @@ class _PostRideScreenState extends State<PostRideScreen> {
   final days = <int>{};
   int weeks = 4;
   static const weekOptions = [1, 2, 3, 4, 6, 8];
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.prefill;
+    if (p == null) return;
+    from.text = p.from;
+    to.text = p.to;
+    // Une date passée est ignorée : l'utilisateur la choisira lui-même
+    if (p.date != null && !p.date!.isBefore(DateUtils.dateOnly(DateTime.now()))) {
+      dateCtrl.text = fmtDate(date = p.date!);
+    }
+    if (p.hour != null && p.minute != null) {
+      time = TimeOfDay(hour: p.hour!, minute: p.minute!);
+      timeCtrl.text = '${two(p.hour!)}:${two(p.minute!)}';
+    }
+    if (p.seats != null) seats.text = '${p.seats}';
+    if (p.price != null) price.text = fmtPrice(p.price!);
+  }
 
   @override
   void dispose() {

@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Le micro sert à dicter votre demande à l'assistant.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>La reconnaissance vocale transforme votre demande en texte pour l'assistant.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

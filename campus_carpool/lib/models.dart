@@ -13,4 +13,6 @@ export 'models/profile_stats.dart';
 export 'models/review.dart';
 export 'models/ride.dart';
 export 'models/ride_alert.dart';
+export 'models/ride_connection.dart';
 export 'models/ride_details.dart';
+export 'models/ride_prefill.dart';
