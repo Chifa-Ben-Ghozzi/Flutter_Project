@@ -274,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisCount: 3,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.95,
+        childAspectRatio: 0.85,
       ),
       itemBuilder: (_, i) {
         final (icon, value, label, color) = items[i];
