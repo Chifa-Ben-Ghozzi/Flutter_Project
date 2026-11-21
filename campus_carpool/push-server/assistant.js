@@ -28,7 +28,7 @@ try {
 const PORT = Number(process.env.ASSISTANT_PORT || 8787);
 // Gemini (gratuit) dès qu'une clé Gemini est fournie, sinon Claude
 const PROVIDER = process.env.GEMINI_API_KEY ? 'gemini' : 'claude';
-const MODEL = process.env.ASSISTANT_MODEL || (PROVIDER === 'gemini' ? 'gemini-3.6-flash' : 'claude-opus-5-5');
+const MODEL = process.env.ASSISTANT_MODEL || (PROVIDER === 'gemini' ? 'gemini-3.5-flash-lite' : 'claude-opus-5-5');
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'campus-carpool-a1d40';
 
 // Vérifier un jeton de connexion Firebase ne demande que l'identifiant du projet (pas de service-account.json).
@@ -213,6 +213,35 @@ function userInput(session, body) {
 
 // ---------- Fournisseurs d'IA : chacun renvoie { reply, calls: [{ id, name, input }], refused } ----------
 
+// Le modèle gratuit est parfois saturé (erreur 503 « high demand ») : on réessaie, puis on passe au modèle de secours.
+const GEMINI_FALLBACK = process.env.ASSISTANT_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
+const BUSY = new Set([429, 500, 503, 504]);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function createWithRetry(session, params) {
+  // Une conversation qui a basculé sur le modèle de secours y reste
+  const models = [...new Set([session.model || MODEL, GEMINI_FALLBACK])];
+  let last;
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const interaction = await gemini.interactions.create({ model, ...params });
+        if (model !== session.model) {
+          if (session.model) console.log(`[assistant] modèle saturé : la conversation continue avec ${model}`);
+          session.model = model;
+        }
+        return interaction;
+      } catch (e) {
+        last = e;
+        if (!BUSY.has(e.status)) throw e;
+        console.log(`[assistant] ${model} indisponible (${e.status}), nouvel essai…`);
+        await pause(attempt === 0 ? 800 : 1500);
+      }
+    }
+  }
+  throw last;
+}
+
 /// Google Gemini (offre gratuite). La conversation est gardée côté Google : on enchaîne avec previous_interaction_id.
 async function askGemini(session, { results, text }) {
   const steps = results.map((r) => ({
@@ -223,8 +252,7 @@ async function askGemini(session, { results, text }) {
     is_error: r.isError,
   }));
   if (text && steps.length) steps.push({ type: 'user_input', content: [{ type: 'text', text }] });
-  const interaction = await gemini.interactions.create({
-    model: MODEL,
+  const params = {
     input: steps.length ? steps : text,
     system_instruction: session.system,
     tools: tools.map((t) => {
@@ -234,7 +262,8 @@ async function askGemini(session, { results, text }) {
     // Discussion courte : peu de réflexion donne des réponses rapides
     generation_config: { thinking_level: 'low' },
     ...(session.interactionId ? { previous_interaction_id: session.interactionId } : {}),
-  });
+  };
+  const interaction = await createWithRetry(session, params);
   session.interactionId = interaction.id;
   const all = interaction.steps || [];
   const reply =
